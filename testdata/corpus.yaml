@@ -1,0 +1,163 @@
+- topic: zwave/example_sensor/lastActive
+  payload: '{"time":1711922310802,"value":1711922310552}'
+  expect:
+    - 'zwave_node_last_active{node="example_sensor"} 1.711922310552e+09'
+
+- topic: zwave/example_sensor/sensor_multilevel/endpoint_0/Air_temperature
+  payload: '{"time":1735855076246,"value":25.5}'
+  expect:
+    - 'zwave_sensor_temperature{endpoint="endpoint_0",sensor="example_sensor"} 25.5'
+
+- topic: zwave/example_sensor/sensor_multilevel/endpoint_0/Humidity
+  payload: '{"time":1735855076298,"value":30}'
+  expect:
+    - 'zwave_sensor_humidity{endpoint="endpoint_0",sensor="example_sensor"} 30'
+
+- topic: zwave/example_sensor/sensor_multilevel/endpoint_0/Illuminance
+  payload: '{"time":1735855077071,"value":34}'
+  expect:
+    - 'zwave_sensor_illuminance{endpoint="endpoint_0",sensor="example_sensor"} 34'
+
+- topic: zwave/example_sensor/sensor_multilevel/endpoint_0/ThisMetricDoesntExist
+  payload: '{"time":1735855077071,"value":34}'
+  reject:
+    - ThisMetricDoesntExist
+
+- topic: zwave/example_outlet/meter/endpoint_0/value/65537
+  payload: '{"time":1735906852206,"value":1}'
+  expect:
+    - 'zwave_power_meter_total_consumption_kwh{endpoint="endpoint_0",meter="example_outlet"} 1'
+
+- topic: zwave/example_outlet/meter/endpoint_1/value/65537
+  payload: '{"time":1735906852206,"value":1}'
+  expect:
+    - 'zwave_power_meter_total_consumption_kwh{endpoint="endpoint_1",meter="example_outlet"} 1'
+
+- topic: zwave/example_outlet/meter/endpoint_0/value/66049
+  payload: '{"time":1735906853203,"value":3.395}'
+  expect:
+    - 'zwave_power_meter_power_watts{endpoint="endpoint_0",meter="example_outlet"} 3.395'
+
+- topic: zwave/example_outlet/meter/endpoint_0/value/66561
+  payload: '{"time":1735906854203,"value":240.71}'
+  expect:
+    - 'zwave_power_meter_voltage_volts{endpoint="endpoint_0",meter="example_outlet"} 240.71'
+
+- topic: zwave/example_outlet/meter/endpoint_0/value/66817
+  payload: '{"time":1735906855204,"value":0.023}'
+  expect:
+    - 'zwave_power_meter_current_amps{endpoint="endpoint_0",meter="example_outlet"} 0.023'
+
+- topic: zwave/example_outlet/meter/endpoint_0/value/DOESNTEXIST
+  payload: '{"time":1735906855204,"value":0.023}'
+  reject:
+    - DOESNTEXIST
+
+- topic: zigbee2mqtt/example device
+  payload: '{"current":0.54,"energy":1.05,"identify":null,"linkquality":255,"power":102,"power_on_behavior":"on","state":"ON","update":{"installed_version":33816645,"latest_version":33816645,"state":"idle"},"voltage":239.1}'
+  expect:
+    - 'zigbee_power_meter_current{device="example device"} 0.54'
+    - 'zigbee_power_meter_energy_total{device="example device"} 1.05'
+    - 'zigbee_power_meter_power{device="example device"} 102'
+    - 'zigbee_power_meter_voltage{device="example device"} 239.1'
+    - 'zigbee_link_quality{device="example device"} 255'
+    - 'zigbee_state{device="example device"} 1'
+
+- topic: zigbee2mqtt/partial device
+  payload: '{"current":22222.0}'
+  expect:
+    - 'zigbee_power_meter_current{device="partial device"} 22222'
+  reject:
+    - 'zigbee_power_meter_power{device="partial device"}'
+
+# $SYS topics are published by the broker itself; a client is not allowed to
+# write them. These assert the series appears, not a value we chose.
+- topic: $SYS/broker/uptime
+  broker_generated: true
+  expect:
+    - mosquitto_uptime_seconds
+
+- topic: $SYS/broker/clients/connected
+  broker_generated: true
+  expect:
+    - 'mosquitto_clients{state="connected"}'
+
+- topic: $SYS/broker/clients/disconnected
+  broker_generated: true
+  expect:
+    - 'mosquitto_clients{state="disconnected"}'
+
+- topic: $SYS/broker/clients/total
+  broker_generated: true
+  expect:
+    - 'mosquitto_clients{state="total"}'
+
+- topic: $SYS/broker/clients/maximum
+  broker_generated: true
+  expect:
+    - 'mosquitto_clients{state="maximum"}'
+
+- topic: $SYS/broker/subscriptions/count
+  broker_generated: true
+  expect:
+    - mosquitto_subscriptions
+
+- topic: $SYS/broker/retained messages/count
+  broker_generated: true
+  expect:
+    - mosquitto_retained_messages
+
+- topic: $SYS/broker/store/messages/count
+  broker_generated: true
+  expect:
+    - mosquitto_store_messages
+
+- topic: $SYS/broker/store/messages/bytes
+  broker_generated: true
+  expect:
+    - mosquitto_store_bytes
+
+- topic: $SYS/broker/messages/received
+  broker_generated: true
+  expect:
+    - 'mosquitto_messages_total{direction="received"}'
+
+- topic: $SYS/broker/messages/sent
+  broker_generated: true
+  expect:
+    - 'mosquitto_messages_total{direction="sent"}'
+
+- topic: $SYS/broker/bytes/received
+  broker_generated: true
+  expect:
+    - 'mosquitto_bytes_total{direction="received"}'
+
+- topic: $SYS/broker/bytes/sent
+  broker_generated: true
+  expect:
+    - 'mosquitto_bytes_total{direction="sent"}'
+
+- topic: $SYS/broker/publish/messages/received
+  broker_generated: true
+  expect:
+    - 'mosquitto_publish_messages_total{direction="received"}'
+
+- topic: $SYS/broker/publish/messages/sent
+  broker_generated: true
+  expect:
+    - 'mosquitto_publish_messages_total{direction="sent"}'
+
+- topic: $SYS/broker/publish/messages/dropped
+  broker_generated: true
+  expect:
+    - mosquitto_publish_messages_dropped_total
+
+- topic: $SYS/broker/load/messages/received/1min
+  broker_generated: true
+  reject:
+    - load_messages
+
+- topic: $SYS/broker/version
+  broker_generated: true
+  reject:
+    - mosquitto_version
