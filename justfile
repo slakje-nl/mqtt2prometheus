@@ -16,6 +16,9 @@ run *args: build
     ./bin/mqtt2prometheus --config config {{ args }}
 
 verify: build
+    MQTT_BROKER="${MQTT_BROKER:-tcp://mqtt.example:1883}" \
+    MQTT_USERNAME="${MQTT_USERNAME:-verify}" \
+    MQTT_PASSWORD="${MQTT_PASSWORD:-verify}" \
     ./bin/mqtt2prometheus --config config --verify-config
 
 format:

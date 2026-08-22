@@ -1,0 +1,15 @@
+mqtt:
+  broker: ${MQTT_BROKER}
+  client_id: mqtt2prometheus
+  username: ${MQTT_USERNAME}
+  password: ${MQTT_PASSWORD}
+  qos: 1
+  clean_session: false
+
+server:
+  listen: ":9000"
+
+log:
+  level: info
+
+sources: sources/*.yaml

@@ -1,0 +1,52 @@
+name: zwave
+subscribe: 'zwave/#'
+last_updated_metric: zwave_last_update
+
+rules:
+  - match: '^zwave/(?P<node>[^/]+)/lastActive$'
+    metric_name: zwave_node_last_active
+    type: gauge
+    help: Unix time of the last message from this node
+    value: {from: json, path: value, scale: 0.001}
+
+  - match: '^zwave/(?P<sensor>[^/]+)/sensor_multilevel/(?P<endpoint>endpoint_\d+)/Air_temperature$'
+    metric_name: zwave_sensor_temperature
+    type: gauge
+    help: Air temperature in celsius
+    value: {from: json, path: value}
+
+  - match: '^zwave/(?P<sensor>[^/]+)/sensor_multilevel/(?P<endpoint>endpoint_\d+)/Humidity$'
+    metric_name: zwave_sensor_humidity
+    type: gauge
+    help: Relative humidity in percent
+    value: {from: json, path: value}
+
+  - match: '^zwave/(?P<sensor>[^/]+)/sensor_multilevel/(?P<endpoint>endpoint_\d+)/Illuminance$'
+    metric_name: zwave_sensor_illuminance
+    type: gauge
+    help: Illuminance in lux
+    value: {from: json, path: value}
+
+  - match: '^zwave/(?P<meter>[^/]+)/meter/(?P<endpoint>endpoint_\d+)/value/65537$'
+    metric_name: zwave_power_meter_total_consumption_kwh
+    type: counter
+    help: Total electricity consumed in kWh
+    value: {from: json, path: value}
+
+  - match: '^zwave/(?P<meter>[^/]+)/meter/(?P<endpoint>endpoint_\d+)/value/66049$'
+    metric_name: zwave_power_meter_power_watts
+    type: gauge
+    help: Current power draw in watts
+    value: {from: json, path: value}
+
+  - match: '^zwave/(?P<meter>[^/]+)/meter/(?P<endpoint>endpoint_\d+)/value/66561$'
+    metric_name: zwave_power_meter_voltage_volts
+    type: gauge
+    help: Voltage in volts
+    value: {from: json, path: value}
+
+  - match: '^zwave/(?P<meter>[^/]+)/meter/(?P<endpoint>endpoint_\d+)/value/66817$'
+    metric_name: zwave_power_meter_current_amps
+    type: gauge
+    help: Current in amps
+    value: {from: json, path: value}
