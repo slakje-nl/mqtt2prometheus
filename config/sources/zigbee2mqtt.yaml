@@ -1,0 +1,47 @@
+name: zigbee2mqtt
+subscribe: 'zigbee2mqtt/#'
+last_updated_metric: zigbee_last_update
+
+rules:
+  - match: '^zigbee2mqtt/(?P<device>[^/]+)$'
+    metric_name: zigbee_power_meter_current
+    type: gauge
+    help: Current in amps
+    value: {from: json, path: current}
+    last_updated_metric: zigbee_power_meter_last_update
+
+  - match: '^zigbee2mqtt/(?P<device>[^/]+)$'
+    metric_name: zigbee_power_meter_energy_total
+    type: counter
+    help: Total energy consumed in kWh
+    value: {from: json, path: energy}
+    last_updated_metric: zigbee_power_meter_last_update
+
+  - match: '^zigbee2mqtt/(?P<device>[^/]+)$'
+    metric_name: zigbee_power_meter_power
+    type: gauge
+    help: Current power draw in watts
+    value: {from: json, path: power}
+    last_updated_metric: zigbee_power_meter_last_update
+
+  - match: '^zigbee2mqtt/(?P<device>[^/]+)$'
+    metric_name: zigbee_power_meter_voltage
+    type: gauge
+    help: Voltage in volts
+    value: {from: json, path: voltage}
+    last_updated_metric: zigbee_power_meter_last_update
+
+  - match: '^zigbee2mqtt/(?P<device>[^/]+)$'
+    metric_name: zigbee_link_quality
+    type: gauge
+    help: Zigbee link quality, 0 to 255
+    value: {from: json, path: linkquality}
+
+  - match: '^zigbee2mqtt/(?P<device>[^/]+)$'
+    metric_name: zigbee_state
+    type: gauge
+    help: 1 when the device reports itself on
+    value:
+      from: json
+      path: state
+      map: {ON: 1, OFF: 0}

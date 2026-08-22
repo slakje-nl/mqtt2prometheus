@@ -1,0 +1,89 @@
+name: mosquitto
+subscribe: '$SYS/#'
+qos: 2
+last_updated_metric: mosquitto_last_update
+
+rules:
+  - match: '^\$SYS/broker/uptime$'
+    metric_name: mosquitto_uptime_seconds
+    type: gauge
+    help: Seconds since the broker started
+    value: {from: raw, regex: '^([0-9]+) seconds$'}
+
+  - match: '^\$SYS/broker/clients/(?P<state>connected|disconnected|maximum|total)$'
+    metric_name: mosquitto_clients
+    type: gauge
+    help: Clients known to the broker, by state
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/clients/expired$'
+    metric_name: mosquitto_clients_expired
+    type: gauge
+    help: Persistent clients expired and removed since the broker started
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/subscriptions/count$'
+    metric_name: mosquitto_subscriptions
+    type: gauge
+    help: Subscriptions currently active
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/shared_subscriptions/count$'
+    metric_name: mosquitto_shared_subscriptions
+    type: gauge
+    help: Shared subscriptions currently active
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/retained messages/count$'
+    metric_name: mosquitto_retained_messages
+    type: gauge
+    help: Retained messages held by the broker
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/store/messages/count$'
+    metric_name: mosquitto_store_messages
+    type: gauge
+    help: Messages currently held in the message store
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/store/messages/bytes$'
+    metric_name: mosquitto_store_bytes
+    type: gauge
+    help: Bytes currently held in the message store
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/messages/inflight$'
+    metric_name: mosquitto_messages_inflight
+    type: gauge
+    help: QoS 1 and 2 messages awaiting completion
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/messages/(?P<direction>received|sent)$'
+    metric_name: mosquitto_messages_total
+    type: counter
+    help: Messages since the broker started, by direction
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/bytes/(?P<direction>received|sent)$'
+    metric_name: mosquitto_bytes_total
+    type: counter
+    help: Bytes since the broker started, by direction
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/publish/messages/(?P<direction>received|sent)$'
+    metric_name: mosquitto_publish_messages_total
+    type: counter
+    help: PUBLISH packets since the broker started, by direction
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/publish/messages/dropped$'
+    metric_name: mosquitto_publish_messages_dropped_total
+    type: counter
+    help: PUBLISH packets the broker discarded since it started
+    value: {from: raw}
+
+  - match: '^\$SYS/broker/publish/bytes/(?P<direction>received|sent)$'
+    metric_name: mosquitto_publish_bytes_total
+    type: counter
+    help: PUBLISH payload bytes since the broker started, by direction
+    value: {from: raw}
