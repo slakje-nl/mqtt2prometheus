@@ -96,11 +96,6 @@ func (r *Router) Stop() {
 	stopped.Wait()
 }
 
-func (r *Router) Reload(ctx context.Context, sources []*source) {
-	r.Stop()
-	r.Start(ctx, sources)
-}
-
 func (r *Router) consume(ctx context.Context, f *feed) {
 	for {
 		select {
@@ -131,19 +126,4 @@ func (r *Router) Subscriptions() []broker.Subscription {
 	}
 
 	return subs
-}
-
-func (r *Router) MetricNames() map[string]struct{} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	names := map[string]struct{}{}
-
-	for _, f := range r.feeds {
-		for _, name := range f.source.metricNames() {
-			names[name] = struct{}{}
-		}
-	}
-
-	return names
 }

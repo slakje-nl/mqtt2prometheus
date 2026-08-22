@@ -105,31 +105,6 @@ func TestSnapshot_OfAnEmptyStore(t *testing.T) {
 	require.Empty(t, New().Snapshot())
 }
 
-func TestRetain_DropsSeriesWhoseMetricIsGone(t *testing.T) {
-	s := New()
-
-	s.Set("keep", Gauge, "", map[string]string{"a": "1"}, 1)
-	s.Set("keep", Gauge, "", map[string]string{"a": "2"}, 1)
-	s.Set("drop", Gauge, "", nil, 1)
-
-	s.Retain(func(name string) bool { return name == "keep" })
-
-	require.Equal(t, 2, s.Len())
-	require.Equal(t, "keep", s.Snapshot()[0].Key.Name)
-}
-
-func TestRetain_KeepsCounterOffsetsForSurvivingSeries(t *testing.T) {
-	s := New()
-
-	s.Set("messages", Counter, "", nil, 100)
-	s.Set("messages", Counter, "", nil, 5)
-
-	s.Retain(func(string) bool { return true })
-	s.Set("messages", Counter, "", nil, 6)
-
-	require.InDelta(t, 106.0, s.Snapshot()[0].Value, 1e-9)
-}
-
 func TestSet_KindAndHelpAreUpdatedInPlace(t *testing.T) {
 	s := New()
 

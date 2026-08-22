@@ -88,17 +88,13 @@ func TestRouter_DropsWhenTheBufferIsFull(t *testing.T) {
 	require.InDelta(t, 0.0, testutil.ToFloat64(self.Received.WithLabelValues("zwave")), 1e-9)
 }
 
-func TestRouter_SubscriptionsAndMetricNames(t *testing.T) {
+func TestRouter_Subscriptions(t *testing.T) {
 	router, _, _ := newTestRouter(t)
 	router.Start(t.Context(), compiled(t, zwaveConfig()))
 
 	defer router.Stop()
 
 	require.Equal(t, []broker.Subscription{{Filter: "zwave/#", QoS: 1}}, router.Subscriptions())
-	require.Equal(t, map[string]struct{}{
-		"zwave_node_last_active": {},
-		"zwave_last_update":      {},
-	}, router.MetricNames())
 }
 
 func TestRouter_StopIsSafeBeforeStart(t *testing.T) {
@@ -107,31 +103,6 @@ func TestRouter_StopIsSafeBeforeStart(t *testing.T) {
 	router.Stop()
 
 	require.Empty(t, router.Subscriptions())
-}
-
-func TestRouter_ReloadSwapsTheRules(t *testing.T) {
-	router, samples, _ := newTestRouter(t)
-	router.Start(t.Context(), compiled(t, zwaveConfig()))
-
-	defer router.Stop()
-
-	replacement := zwaveConfig()
-	replacement.SourceList[0].Rules[0].MetricName = "zwave_renamed"
-	router.Reload(t.Context(), compiled(t, replacement))
-
-	router.Dispatch(broker.Message{
-		Topic: "zwave/example_sensor/lastActive", Payload: []byte(`{"value":1000}`),
-	})
-
-	require.Eventually(t, func() bool {
-		for _, sample := range samples.Snapshot() {
-			if sample.Key.Name == "zwave_renamed" {
-				return true
-			}
-		}
-
-		return false
-	}, 2*time.Second, 5*time.Millisecond)
 }
 
 func TestRouter_ConsumeExitsWhenTheContextIsDone(t *testing.T) {

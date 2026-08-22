@@ -26,8 +26,8 @@ const mainTemplate = `
 mqtt:
   broker: BROKER_URL
   client_id: mqtt2prometheus-test
-  username: user
-  password: pass
+  username: broker-account
+  password: s3cr3t-value
   qos: 1
   clean_session: true
 
@@ -126,10 +126,9 @@ func TestRun_EndToEnd(t *testing.T) {
 	application := New(dir, Build{Version: "test", Commit: "abc"}, quietLogger())
 
 	ctx, cancel := context.WithCancel(t.Context())
-	reload := make(chan struct{}, 1)
 	done := make(chan error, 1)
 
-	go func() { done <- application.Run(ctx, reload) }()
+	go func() { done <- application.Run(ctx) }()
 
 	require.Eventually(t, func() bool {
 		_, _, err := tryGet(t, "http://"+listen+"/healthz")
@@ -162,94 +161,15 @@ func TestRun_RejectsABrokenConfig(t *testing.T) {
 		"broken.yaml": "name: broken\nsubscribe: 'x/#'\nrules: []\n",
 	})
 
-	err := New(dir, Build{}, quietLogger()).Run(t.Context(), nil)
+	err := New(dir, Build{}, quietLogger()).Run(t.Context())
 
 	require.ErrorContains(t, err, "at least one rule is required")
 }
 
 func TestRun_ReportsAMissingConfigDirectory(t *testing.T) {
-	err := New(filepath.Join(t.TempDir(), "absent"), Build{}, quietLogger()).Run(t.Context(), nil)
+	err := New(filepath.Join(t.TempDir(), "absent"), Build{}, quietLogger()).Run(t.Context())
 
 	require.ErrorContains(t, err, "reading config")
-}
-
-func TestReload_SwapsRulesAndDropsRemovedSeries(t *testing.T) {
-	brokerURL := startTestBroker(t)
-	dir := writeConfigDir(t, brokerURL, freeAddress(t), map[string]string{"zwave.yaml": zwaveSource})
-
-	application := New(dir, Build{}, quietLogger())
-	_, sources, err := application.load()
-	require.NoError(t, err)
-
-	application.router.Start(t.Context(), sources)
-
-	defer application.router.Stop()
-
-	application.samples.Set("zwave_node_last_active", 0, "", map[string]string{"node": "a"}, 1)
-	application.samples.Set("gone_metric", 0, "", nil, 1)
-
-	renamed := strings.Replace(zwaveSource, "zwave_node_last_active", "zwave_renamed", 1)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "sources", "zwave.yaml"), []byte(renamed), 0o600))
-
-	application.reload(t.Context())
-
-	require.InDelta(t, 1.0, testutil.ToFloat64(application.self.Reloads), 1e-9)
-	require.Zero(t, application.samples.Len())
-}
-
-func TestReload_KeepsTheRunningConfigWhenTheNewOneIsBroken(t *testing.T) {
-	brokerURL := startTestBroker(t)
-	dir := writeConfigDir(t, brokerURL, freeAddress(t), map[string]string{"zwave.yaml": zwaveSource})
-
-	application := New(dir, Build{}, quietLogger())
-	_, sources, err := application.load()
-	require.NoError(t, err)
-
-	application.router.Start(t.Context(), sources)
-
-	defer application.router.Stop()
-
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "sources", "zwave.yaml"), []byte("name: x\n"), 0o600))
-	application.reload(t.Context())
-
-	require.InDelta(t, 1.0, testutil.ToFloat64(application.self.ReloadFailures), 1e-9)
-	require.Equal(t, []broker.Subscription{{Filter: "zwave/#", QoS: 1}}, application.router.Subscriptions())
-}
-
-func TestWatchReloads_RespondsToASignalAndToCancellation(t *testing.T) {
-	brokerURL := startTestBroker(t)
-	dir := writeConfigDir(t, brokerURL, freeAddress(t), map[string]string{"zwave.yaml": zwaveSource})
-
-	application := New(dir, Build{}, quietLogger())
-	_, sources, err := application.load()
-	require.NoError(t, err)
-
-	application.router.Start(t.Context(), sources)
-
-	defer application.router.Stop()
-
-	ctx, cancel := context.WithCancel(t.Context())
-	reload := make(chan struct{}, 1)
-	finished := make(chan struct{})
-
-	go func() {
-		application.watchReloads(ctx, reload)
-		close(finished)
-	}()
-
-	reload <- struct{}{}
-
-	require.Eventually(t, func() bool {
-		return testutil.ToFloat64(application.self.Reloads) == 1
-	}, 5*time.Second, 10*time.Millisecond)
-
-	cancel()
-
-	select {
-	case <-finished:
-	case <-time.After(5 * time.Second):
-		t.Fatal("watchReloads did not return")
-	}
 }
 
 func TestObserverCallbacks(t *testing.T) {
@@ -287,8 +207,8 @@ func TestRun_ReportsDuplicateMetricRegistration(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	require.NoError(t, application.Run(ctx, nil))
+	require.NoError(t, application.Run(ctx))
 
-	err := application.Run(ctx, nil)
+	err := application.Run(ctx)
 	require.ErrorContains(t, err, "registering metrics")
 }

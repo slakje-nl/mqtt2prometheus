@@ -50,7 +50,7 @@ func New(dir string, build Build, log *slog.Logger) *App {
 	}
 }
 
-func (a *App) Run(ctx context.Context, reload <-chan struct{}) error {
+func (a *App) Run(ctx context.Context) error {
 	cfg, sources, err := a.load()
 	if err != nil {
 		return err
@@ -65,21 +65,7 @@ func (a *App) Run(ctx context.Context, reload <-chan struct{}) error {
 
 	defer a.router.Stop()
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		a.watchReloads(ctx, reload)
-	}()
-
-	err = a.runComponents(ctx, cfg)
-
-	wg.Wait()
-
-	return err
+	return a.runComponents(ctx, cfg)
 }
 
 func (a *App) runComponents(ctx context.Context, cfg *config.Config) error {
@@ -161,39 +147,6 @@ func (a *App) load() (*config.Config, []*source, error) {
 	sources, err := compileSources(cfg)
 
 	return cfg, sources, err
-}
-
-func (a *App) watchReloads(ctx context.Context, reload <-chan struct{}) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-reload:
-			a.reload(ctx)
-		}
-	}
-}
-
-func (a *App) reload(ctx context.Context) {
-	_, sources, err := a.load()
-	if err != nil {
-		a.self.ReloadFailures.Inc()
-		a.log.Error("configuration reload rejected, keeping the running config", "error", err)
-
-		return
-	}
-
-	a.router.Reload(ctx, sources)
-
-	keep := a.router.MetricNames()
-	a.samples.Retain(func(name string) bool {
-		_, wanted := keep[name]
-
-		return wanted
-	})
-
-	a.self.Reloads.Inc()
-	a.log.Info("configuration reloaded", "sources", len(sources))
 }
 
 func NewLogger(level string) *slog.Logger {

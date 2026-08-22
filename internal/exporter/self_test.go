@@ -21,8 +21,6 @@ func TestSelf_RegistersAndReports(t *testing.T) {
 	self.Received.WithLabelValues("zwave").Add(3)
 	self.Dropped.Inc()
 	self.Errors.WithLabelValues("zwave", "json").Inc()
-	self.Reloads.Inc()
-	self.ReloadFailures.Inc()
 
 	require.InDelta(t, 1.0, testutil.ToFloat64(self.Connected), 1e-9)
 	require.InDelta(t, 42.0, testutil.ToFloat64(self.SeriesInStore), 1e-9)
