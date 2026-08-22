@@ -31,6 +31,7 @@ func run(args []string, out io.Writer) error {
 	verify := flags.Bool("verify-config", false, "load and check the configuration, then exit")
 	showVersion := flags.Bool("version", false, "print the version and exit")
 	logLevel := flags.String("log-level", "", "override log.level from the configuration")
+	healthcheck := flags.Bool("healthcheck", false, "probe the local health endpoint and exit")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -40,6 +41,10 @@ func run(args []string, out io.Writer) error {
 		_, err := fmt.Fprintf(out, "mqtt2prometheus %s (%s)\n", version, commit)
 
 		return err
+	}
+
+	if *healthcheck {
+		return app.Healthcheck(*dir)
 	}
 
 	if *verify {
