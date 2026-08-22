@@ -6,16 +6,17 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
-	mqtt "github.com/mochi-mqtt/server/v2"
-	"github.com/mochi-mqtt/server/v2/hooks/auth"
-	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type recordingObserver struct {
@@ -65,97 +66,6 @@ func (s *stubSubscriber) Subscribe(_ context.Context, sub *paho.Subscribe) (*pah
 
 func quietLogger() *slog.Logger {
 	return slog.New(slog.NewJSONHandler(io.Discard, nil))
-}
-
-func startBroker(t *testing.T) string {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-
-	address := listener.Addr().String()
-	require.NoError(t, listener.Close())
-
-	server := mqtt.New(&mqtt.Options{InlineClient: true})
-	require.NoError(t, server.AddHook(new(auth.AllowHook), nil))
-	require.NoError(t, server.AddListener(listeners.NewTCP(listeners.Config{ID: "t", Address: address})))
-
-	go func() { _ = server.Serve() }()
-
-	t.Cleanup(func() { _ = server.Close() })
-
-	require.Eventually(t, func() bool {
-		conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
-		if err != nil {
-			return false
-		}
-
-		return conn.Close() == nil
-	}, 5*time.Second, 20*time.Millisecond)
-
-	return server2URL(address)
-}
-
-func server2URL(address string) string { return "tcp://" + address }
-
-func TestRun_ReceivesAPublishedMessage(t *testing.T) {
-	address := startBroker(t)
-	observer := &recordingObserver{}
-
-	p := NewPaho(Credentials{URL: address, ClientID: "reader", Username: "u", Password: "p"},
-		quietLogger(), observer)
-
-	received := make(chan Message, 1)
-	ctx, cancel := context.WithCancel(t.Context())
-
-	done := make(chan error, 1)
-	go func() {
-		done <- p.Run(ctx, []Subscription{{Filter: "zwave/#", QoS: 1}}, func(m Message) {
-			select {
-			case received <- m:
-			default:
-			}
-		})
-	}()
-
-	require.Eventually(t, observer.everConnected, 5*time.Second, 20*time.Millisecond)
-
-	publish(t, address, "zwave/example_sensor/lastActive", `{"value":1711922310552}`)
-
-	select {
-	case message := <-received:
-		require.Equal(t, "zwave/example_sensor/lastActive", message.Topic)
-		require.JSONEq(t, `{"value":1711922310552}`, string(message.Payload))
-	case <-time.After(5 * time.Second):
-		t.Fatal("no message received")
-	}
-
-	cancel()
-	require.NoError(t, <-done)
-}
-
-func publish(t *testing.T, address, topic, payload string) {
-	t.Helper()
-
-	observer := &recordingObserver{}
-	p := NewPaho(Credentials{URL: address, ClientID: "writer", Username: "u", Password: "p"},
-		quietLogger(), observer)
-
-	cfg, err := p.clientConfig(t.Context(), nil, func(Message) {})
-	require.NoError(t, err)
-
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-
-	mgr, err := autopaho.NewConnection(ctx, cfg)
-	require.NoError(t, err)
-
-	defer func() { _ = mgr.Disconnect(context.WithoutCancel(ctx)) }()
-
-	require.NoError(t, mgr.AwaitConnection(ctx))
-
-	_, err = mgr.Publish(ctx, &paho.Publish{Topic: topic, QoS: 1, Payload: []byte(payload)})
-	require.NoError(t, err)
 }
 
 func TestRun_RejectsAnUnparseableBrokerURL(t *testing.T) {
@@ -239,6 +149,29 @@ func TestClientConfig_CarriesCredentialsAndErrorCallbacks(t *testing.T) {
 	require.Equal(t, []bool{false, false}, observer.up)
 }
 
+func TestClientConfig_PublishHandlerForwardsTheMessage(t *testing.T) {
+	p := NewPaho(Credentials{URL: "tcp://127.0.0.1:1"}, quietLogger(), &recordingObserver{})
+
+	received := make(chan Message, 1)
+
+	cfg, err := p.clientConfig(t.Context(), nil, func(m Message) { received <- m })
+	require.NoError(t, err)
+
+	done, err := cfg.OnPublishReceived[0](paho.PublishReceived{
+		Packet: &paho.Publish{
+			Topic:   "zwave/example_sensor/lastActive",
+			Payload: []byte(`{"value":1711922310552}`),
+		},
+	})
+
+	require.NoError(t, err)
+	require.True(t, done)
+
+	message := <-received
+	require.Equal(t, "zwave/example_sensor/lastActive", message.Topic)
+	require.JSONEq(t, `{"value":1711922310552}`, string(message.Payload))
+}
+
 type stubConnection struct {
 	disconnectErr error
 	disconnected  bool
@@ -282,4 +215,56 @@ func TestRun_IgnoresACancelledDisconnect(t *testing.T) {
 	cancel()
 
 	require.NoError(t, p.Run(ctx, nil, func(Message) {}))
+}
+
+const mosquittoConf = "listener 1883\nallow_anonymous true\n"
+
+func startMosquittoContainer(t *testing.T) string {
+	t.Helper()
+
+	conf := filepath.Join(t.TempDir(), "mosquitto.conf")
+	require.NoError(t, os.WriteFile(conf, []byte(mosquittoConf), 0o644))
+
+	container, err := testcontainers.GenericContainer(t.Context(), testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image:        "eclipse-mosquitto:2",
+			ExposedPorts: []string{"1883/tcp"},
+			Files: []testcontainers.ContainerFile{{
+				HostFilePath:      conf,
+				ContainerFilePath: "/mosquitto/config/mosquitto.conf",
+				FileMode:          0o644,
+			}},
+			WaitingFor: wait.ForListeningPort("1883/tcp").WithStartupTimeout(60 * time.Second),
+		},
+		Started: true,
+	})
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = container.Terminate(context.WithoutCancel(t.Context())) })
+
+	host, err := container.Host(t.Context())
+	require.NoError(t, err)
+
+	port, err := container.MappedPort(t.Context(), "1883/tcp")
+	require.NoError(t, err)
+
+	return "tcp://" + net.JoinHostPort(host, port.Port())
+}
+
+func TestRun_SubscribesThroughARealBroker(t *testing.T) {
+	address := startMosquittoContainer(t)
+	observer := &recordingObserver{}
+
+	p := NewPaho(Credentials{URL: address, ClientID: "reader", Username: "u", Password: "p"},
+		quietLogger(), observer)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+
+	go func() { done <- p.Run(ctx, []Subscription{{Filter: "zwave/#", QoS: 1}}, func(Message) {}) }()
+
+	require.Eventually(t, observer.everConnected, 30*time.Second, 50*time.Millisecond)
+
+	cancel()
+	require.NoError(t, <-done)
 }

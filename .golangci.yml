@@ -13,6 +13,9 @@ linters:
   settings:
     revive:
       rules:
+        # CLAUDE.md forbids doc comments that only restate an identifier's name, which is what
+        # this rule demands on every exported symbol. The two cannot both hold; the project rule
+        # wins. This is the only disabled rule in the repository.
         - name: exported
           disabled: true
 issues:
