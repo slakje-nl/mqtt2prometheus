@@ -65,8 +65,8 @@ func NewSelf(seriesCount func() float64) *Self {
 	return s
 }
 
-func (s *Self) Register(reg prometheus.Registerer) error {
-	for _, collector := range s.registerTargets {
+func (s *Self) Register(reg prometheus.Registerer, extra ...prometheus.Collector) error {
+	for _, collector := range append(s.registerTargets, extra...) {
 		if err := reg.Register(collector); err != nil {
 			return err
 		}
