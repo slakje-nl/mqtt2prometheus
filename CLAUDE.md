@@ -85,8 +85,9 @@ label as published the moment it is written.
   address is a secret like any other**: the example config reads `broker: ${MQTT_BROKER}`, and no
   committed file names a host. Where a literal is genuinely unavoidable in prose, use an
   RFC 5737 documentation address (`192.0.2.10`), never a plausible LAN address.
-- **Real filesystem paths from the user's server.** No `/mnt/user/appdata/...` or other unraid
-  share paths. Compose examples mount `./config`.
+- **Filesystem paths that reveal the user's own layout.** The standard unraid convention
+  `/mnt/user/appdata/mqtt2prometheus` is fine in the README, because it is identical for every
+  unraid user. A path naming their shares, drives or directory names is not.
 - **Real device or topic names.** Z-Wave node names, zigbee2mqtt friendly names and room names
   describe the user's home. Examples and `testdata/` use `example_sensor`, `example_outlet` and
   `example device` (the space is deliberate — it is a real edge case in topic matching).
@@ -122,15 +123,15 @@ label as published the moment it is written.
 git log --format='%ae' | sort -u                 # no personal address in authorship
 just security                                     # gitleaks clean
 
-# any email address at all
-grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . --exclude-dir=.git
+# any email address; the repository SSH URL is the only expected hit
+grep -rnE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . --exclude-dir=.git --exclude=go.sum
 
-# private addresses and unraid share paths
-grep -rnE '192\.168\.|10\.[0-9]{1,3}\.|172\.(1[6-9]|2[0-9]|3[01])\.|/mnt/user/' . --exclude-dir=.git
+# private network addresses; 192.0.2.x is RFC 5737 documentation space and is fine
+grep -rnE '192\.168\.|10\.[0-9]{1,3}\.[0-9]{1,3}\.|172\.(1[6-9]|2[0-9]|3[01])\.' . --exclude-dir=.git
 ```
 
-The last two must return nothing. Every pattern here matches *any* address rather than a specific
-one, so this file never names the values it is protecting.
+Both patterns match *any* address rather than a specific one, so this file never names the values
+it is protecting. Anything they turn up that is not listed above as expected is a leak.
 
 ---
 
