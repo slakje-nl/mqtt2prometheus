@@ -21,7 +21,7 @@ just verify           # mqtt2prometheus --verify-config --config config/
 just format           # gofmt check + go vet + golangci-lint (read-only, same as CI)
 just lint             # apply gofmt + golangci-lint fixes
 just test             # unit tests + 100% coverage gate + feature tests (requires Docker)
-just test-unit        # unit tests + coverage gate only, no Docker
+just test-unit        # unit tests + coverage gate (needs Docker for internal/broker)
 just test-feature     # feature tests only (starts a real mosquitto container)
 just security         # go mod verify + govulncheck + gosec + gitleaks (same as CI)
 just docker-build     # build the image locally
@@ -187,10 +187,22 @@ config/                the user's real configuration, verified in CI
 `cmd/` stays thin. Anything with a branch in it belongs in `internal/app` so the coverage gate
 reaches it.
 
-Dependencies, deliberately few and each at its newest stable release: `eclipse/paho.golang`,
-`prometheus/client_golang`, `gopkg.in/yaml.v3`, `stretchr/testify`, `testcontainers-go`.
-**Adding a dependency needs explicit approval** — ask before introducing any library not already
-in `go.mod`.
+**Ask before adding anything that is not the Go standard library.** This covers every kind of
+addition, not just `go.mod`: a Go module, a linter or scanner, a `go run` tool in the justfile, a
+container base image, a GitHub Action, an npm package in CI, a mise tool. Propose it, say what it
+buys and what it costs, and wait. Never add one as a side effect of solving something else.
+
+If the standard library can do the job at reasonable cost, use the standard library.
+
+The approved set, each at its newest stable release:
+
+| | |
+|---|---|
+| Go modules | `eclipse/paho.golang`, `prometheus/client_golang`, `gopkg.in/yaml.v3`, `stretchr/testify`, `testcontainers-go` |
+| Tools, run through `go run` | `golangci-lint`, `govulncheck`, `gosec`, `gitleaks` |
+| Toolchain | `mise`, `just` |
+| Images | `golang:1.27-alpine` (build), `gcr.io/distroless/static-debian12:nonroot` (runtime), `eclipse-mosquitto:2` (tests) |
+| CI | `actions/checkout`, `actions/setup-node`, `jdx/mise-action`, `docker/setup-buildx-action`, `docker/login-action`, `docker/build-push-action`, `@commitlint/cli`, `@commitlint/config-conventional` |
 
 ---
 
@@ -315,7 +327,10 @@ refactor it — don't push it into a feature test. Feature tests aren't where co
 - Basic scenarios of pure logic: config parsing and validation, regex compilation, label
   extraction, JSON path extraction, value transforms, counter reset arithmetic, store snapshots,
   Collector output.
-- No network, no container, no paho. Mock at `broker.Broker`.
+- No network and no paho, mocked at `broker.Broker`, with one exception: `internal/broker` starts
+  a real `eclipse-mosquitto` container, because the one line handing autopaho's concrete
+  connection manager to our own code cannot be reached any other way. That means `just test-unit`
+  needs Docker.
 - One representative case per branch, table-driven with `t.Run`. Exhaustive payload coverage is
   the feature tests' job, not this layer's.
 - Coverage on `./internal/...` is gated to 100%.

@@ -14,12 +14,11 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
-	mqtt "github.com/mochi-mqtt/server/v2"
-	"github.com/mochi-mqtt/server/v2/hooks/auth"
-	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/slakje-nl/mqtt2prometheus/internal/broker"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 const mainTemplate = `
@@ -52,28 +51,38 @@ rules:
     value: {from: json, path: value, scale: 0.001}
 `
 
+const mosquittoConf = "listener 1883\nallow_anonymous true\n"
+
 func startTestBroker(t *testing.T) string {
 	t.Helper()
 
-	address := freeAddress(t)
-	server := mqtt.New(&mqtt.Options{InlineClient: true})
-	require.NoError(t, server.AddHook(new(auth.AllowHook), nil))
-	require.NoError(t, server.AddListener(listeners.NewTCP(listeners.Config{ID: "t", Address: address})))
+	conf := filepath.Join(t.TempDir(), "mosquitto.conf")
+	require.NoError(t, os.WriteFile(conf, []byte(mosquittoConf), 0o644))
 
-	go func() { _ = server.Serve() }()
+	container, err := testcontainers.GenericContainer(t.Context(), testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			Image:        "eclipse-mosquitto:2",
+			ExposedPorts: []string{"1883/tcp"},
+			Files: []testcontainers.ContainerFile{{
+				HostFilePath:      conf,
+				ContainerFilePath: "/mosquitto/config/mosquitto.conf",
+				FileMode:          0o644,
+			}},
+			WaitingFor: wait.ForListeningPort("1883/tcp").WithStartupTimeout(60 * time.Second),
+		},
+		Started: true,
+	})
+	require.NoError(t, err)
 
-	t.Cleanup(func() { _ = server.Close() })
+	t.Cleanup(func() { _ = container.Terminate(context.WithoutCancel(t.Context())) })
 
-	require.Eventually(t, func() bool {
-		conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
-		if err != nil {
-			return false
-		}
+	host, err := container.Host(t.Context())
+	require.NoError(t, err)
 
-		return conn.Close() == nil
-	}, 5*time.Second, 20*time.Millisecond)
+	port, err := container.MappedPort(t.Context(), "1883/tcp")
+	require.NoError(t, err)
 
-	return "tcp://" + address
+	return "tcp://" + net.JoinHostPort(host, port.Port())
 }
 
 func writeConfigDir(t *testing.T, brokerURL, listen string, sources map[string]string) string {
@@ -199,8 +208,7 @@ func TestNewLogger_ParsesEveryLevel(t *testing.T) {
 }
 
 func TestRun_ReportsDuplicateMetricRegistration(t *testing.T) {
-	brokerURL := startTestBroker(t)
-	dir := writeConfigDir(t, brokerURL, freeAddress(t), map[string]string{"zwave.yaml": zwaveSource})
+	dir := writeConfigDir(t, "tcp://127.0.0.1:1", freeAddress(t), map[string]string{"zwave.yaml": zwaveSource})
 
 	application := New(dir, Build{}, quietLogger())
 
