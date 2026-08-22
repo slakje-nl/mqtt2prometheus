@@ -115,17 +115,6 @@ func (s *Store) Len() int {
 	return len(s.series)
 }
 
-func (s *Store) Retain(keep func(metricName string) bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for id, entry := range s.series {
-		if !keep(entry.name) {
-			delete(s.series, id)
-		}
-	}
-}
-
 func flatten(labels map[string]string) ([]string, []string) {
 	names := make([]string, 0, len(labels))
 	for name := range labels {

@@ -11,8 +11,6 @@ type Self struct {
 	Received        *prometheus.CounterVec
 	Dropped         prometheus.Counter
 	Errors          *prometheus.CounterVec
-	Reloads         prometheus.Counter
-	ReloadFailures  prometheus.Counter
 	SeriesInStore   prometheus.GaugeFunc
 	registerTargets []prometheus.Collector
 }
@@ -43,14 +41,6 @@ func NewSelf(seriesCount func() float64) *Self {
 			Name: "mqtt2prom_message_errors_total",
 			Help: "Messages a rule matched but could not turn into a value",
 		}, []string{"source", "reason"}),
-		Reloads: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "mqtt2prom_config_reloads_total",
-			Help: "Successful configuration reloads",
-		}),
-		ReloadFailures: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "mqtt2prom_config_reload_errors_total",
-			Help: "Configuration reloads that were rejected",
-		}),
 		SeriesInStore: prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Name: "mqtt2prom_series",
 			Help: "Series currently held in the sample store",
@@ -59,7 +49,7 @@ func NewSelf(seriesCount func() float64) *Self {
 
 	s.registerTargets = []prometheus.Collector{
 		s.BuildInfo, s.Connected, s.Reconnects, s.Received,
-		s.Dropped, s.Errors, s.Reloads, s.ReloadFailures, s.SeriesInStore,
+		s.Dropped, s.Errors, s.SeriesInStore,
 	}
 
 	return s
