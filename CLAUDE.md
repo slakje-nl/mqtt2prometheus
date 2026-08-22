@@ -14,6 +14,7 @@ Image: `ghcr.io/slakje-nl/mqtt2prometheus`
 
 ```bash
 just                  # list recipes
+just check            # every gate: format, test, security
 just build            # compile to bin/mqtt2prometheus
 just run              # run against config/ (needs a reachable broker)
 just verify           # mqtt2prometheus --verify-config --config config/

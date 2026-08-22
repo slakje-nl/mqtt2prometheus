@@ -8,6 +8,8 @@ gitleaks := "go run github.com/zricethezav/gitleaks/v8@latest"
 default:
     @just --list --unsorted
 
+check: format test security
+
 build:
     mkdir -p bin
     CGO_ENABLED=0 go build -trimpath -o bin/mqtt2prometheus ./cmd/mqtt2prometheus
