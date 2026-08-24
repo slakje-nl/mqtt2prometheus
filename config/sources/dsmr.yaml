@@ -4,7 +4,6 @@ last_updated_metric: dsmr_last_update
 
 labels:
   mac_address: {from: json, path: mac_address}
-  gateway_model: {from: json, path: gateway_model}
 
 rules:
   - match: '^dsmr/json$'
