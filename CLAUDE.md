@@ -257,9 +257,17 @@ arguments, and an unset variable fails loudly instead of silently falling back t
 happens to exist.
 
 `verify` must catch, at minimum: unparseable regex, a `metric_name` used twice with
-different label sets, a named capture that collides with a declared label, an unknown
-`value.from`, a `type` that is neither `gauge` nor `counter`, and a source whose `subscribe`
-filter cannot match its own rules' regexes.
+different label sets, help or type, a named capture that collides with a declared label, an
+unknown `value.from`, a `type` that is neither `gauge` nor `counter`, and a source whose
+`subscribe` filter cannot match its own rules' regexes.
+
+**A metric name has one shape, and `last_updated_metric` names are metric names too.** Two rules
+may share a name — that is how a `phase` or `tariff` label works — but only with identical label
+keys, `help` and `type`, because the registry gathers them into one family and rejects the whole
+scrape if they disagree. The check covers rule metrics and both kinds of heartbeat, so a
+`last_updated_metric` colliding with a rule's `metric_name` is a configuration error rather than a
+500 on `/metrics`. `run` validates before it starts, so this is a startup check, not only a
+`verify` one.
 
 **A label is a mapping, never a bare string.** `{from: static, value: l1}` or
 `{from: json, path: mac_address}`, with an optional `map` rewriting the result. Nothing is implied

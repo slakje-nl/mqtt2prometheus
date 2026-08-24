@@ -63,6 +63,8 @@ type Value struct {
 	Map   map[string]float64 `yaml:"map"`
 }
 
+const HeartbeatHelp = "Unix time of the last message this rule matched"
+
 const (
 	TypeGauge   = "gauge"
 	TypeCounter = "counter"

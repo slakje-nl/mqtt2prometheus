@@ -184,6 +184,72 @@ func TestValidate_InvalidCaptureGroupName(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), `capture group 1 "1node" is not a valid Prometheus label name`)
 }
 
+func TestValidate_SameMetricNameWithDifferentHelp(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Rules[0].Help = "Unix time of the last message from this node"
+	cfg.SourceList[0].Rules = append(cfg.SourceList[0].Rules, Rule{
+		Match:      `^zwave/(?P<node>[^/]+)/lastSeen$`,
+		MetricName: "zwave_node_last_active",
+		Type:       TypeGauge,
+		Help:       "Something else entirely",
+		Value:      Value{From: FromJSON, Path: "value"},
+	})
+
+	require.ErrorContains(t, cfg.Validate(),
+		`metric_name "zwave_node_last_active" is already used with help "Unix time of the last message from this node", this rule uses "Something else entirely"`)
+}
+
+func TestValidate_SameMetricNameWithDifferentTypes(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Rules = append(cfg.SourceList[0].Rules, Rule{
+		Match:      `^zwave/(?P<node>[^/]+)/lastSeen$`,
+		MetricName: "zwave_node_last_active",
+		Type:       TypeCounter,
+		Value:      Value{From: FromJSON, Path: "value"},
+	})
+
+	require.ErrorContains(t, cfg.Validate(),
+		`metric_name "zwave_node_last_active" is already used as a gauge, this rule makes it a counter`)
+}
+
+func TestValidate_SameMetricNameRepeatedConsistently(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Rules[0].Help = "Unix time of the last message from this node"
+	cfg.SourceList[0].Rules = append(cfg.SourceList[0].Rules, Rule{
+		Match:      `^zwave/(?P<node>[^/]+)/lastSeen$`,
+		MetricName: "zwave_node_last_active",
+		Type:       TypeGauge,
+		Help:       "Unix time of the last message from this node",
+		Value:      Value{From: FromJSON, Path: "value"},
+	})
+
+	require.NoError(t, cfg.Validate())
+}
+
+func TestValidate_HeartbeatCollidesWithAMetric(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Rules[0].Help = "Unix time of the last message from this node"
+	cfg.SourceList[0].LastUpdatedMetric = "zwave_node_last_active"
+
+	require.ErrorContains(t, cfg.Validate(),
+		`metric_name "zwave_node_last_active" is already used with help "Unix time of the last message from this node", this rule uses "Unix time of the last message this rule matched"`)
+}
+
+func TestValidate_TwoHeartbeatsWithDifferentLabelSets(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Rules[0].LastUpdatedMetric = "zwave_seen"
+	cfg.SourceList[0].Rules = append(cfg.SourceList[0].Rules, Rule{
+		Match:             `^zwave/(?P<node>[^/]+)/(?P<endpoint>endpoint_\d+)/lastSeen$`,
+		MetricName:        "zwave_endpoint_last_seen",
+		Type:              TypeGauge,
+		LastUpdatedMetric: "zwave_seen",
+		Value:             Value{From: FromJSON, Path: "value"},
+	})
+
+	require.ErrorContains(t, cfg.Validate(),
+		`metric_name "zwave_seen" is already used with labels [node], this rule uses [endpoint node]`)
+}
+
 func TestValidate_SameMetricNameWithDifferentLabelSets(t *testing.T) {
 	cfg := validConfig()
 	cfg.SourceList[0].Rules = append(cfg.SourceList[0].Rules, Rule{
