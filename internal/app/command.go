@@ -141,6 +141,10 @@ func (c Command) discover(ctx context.Context, args []string) error {
 		return &UsageError{Message: "discover: -count cannot be negative"}
 	}
 
+	if *window < 0 {
+		return &UsageError{Message: "discover: -for cannot be negative"}
+	}
+
 	cfg, err := c.configuration()
 	if err != nil {
 		return err
@@ -166,6 +170,10 @@ func (c Command) capture(ctx context.Context, args []string) error {
 
 	if *count < 0 {
 		return &UsageError{Message: "capture: -count cannot be negative"}
+	}
+
+	if *window < 0 {
+		return &UsageError{Message: "capture: -for cannot be negative"}
 	}
 
 	cfg, err := c.configuration()

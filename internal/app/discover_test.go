@@ -125,6 +125,10 @@ func TestExecute_DiscoverRejectsBadArguments(t *testing.T) {
 	require.ErrorAs(t, err, &usage)
 	require.ErrorContains(t, err, "-count cannot be negative")
 
+	err = command.Execute(t.Context(), []string{"discover", "-for", "-5m"})
+	require.ErrorAs(t, err, &usage)
+	require.ErrorContains(t, err, "-for cannot be negative")
+
 	err = command.Execute(t.Context(), []string{"discover", "-nope"})
 	require.ErrorContains(t, err, "not defined")
 
