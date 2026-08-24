@@ -181,8 +181,12 @@ it is protecting. Anything they turn up that is not listed above as expected is 
   churn, and payloads carry the user's home telemetry.
 - **Config is YAML**, one file for the process and one file per source, with `${ENV_VAR}`
   expansion so credentials never sit in a config file.
-- **SIGHUP reloads config** without dropping counter offsets. A rule that disappears drops its
-  series; a rule that survives keeps its accumulated offset.
+- **There is no config reload. Restarting the container is the reload.** No SIGHUP handler, no
+  file watcher, no reload endpoint. Reloading in place means rebuilding the sources, resubscribing
+  and deciding what happens to the sample store, all so an operator can avoid a restart that takes
+  a second and that they are already doing to roll out a new image. Counter offsets do not survive
+  a restart, and they do not need to: an absolute counter reading re-establishes the series on the
+  first message after startup, and Prometheus treats the gap as a counter reset either way.
 
 Package layout:
 
@@ -193,7 +197,7 @@ internal/rules/        compiled rule: regex match, label extraction, value extra
 internal/store/        sample store, counter reset detection, snapshots
 internal/exporter/     prometheus.Collector over the store, self-metrics
 internal/broker/       Broker interface, autopaho implementation, topic router
-internal/app/          subcommands, wiring, per-source goroutines, reload, HTTP server
+internal/app/          subcommands, wiring, per-source goroutines, HTTP server
 tests/feature/         //go:build feature, real mosquitto via testcontainers-go
 testdata/              golden corpus: captured payloads and expected metrics
 config/                the user's real configuration, verified in CI
@@ -283,7 +287,7 @@ When you touch a file, delete any comment you find in the lines you changed.
   compose example, how to add a rule. Operator-facing behaviour goes here, never into source.
 
 Any change that alters externally-visible behaviour — the config schema, metric names or types,
-counter reset semantics, reload behaviour, self-metrics, the image contract — MUST update
+counter reset semantics, self-metrics, the image contract — MUST update
 `README.md` in the same commit.
 
 Do not create other doc files without being asked.
@@ -365,7 +369,7 @@ refactor it — don't push it into a feature test. Feature tests aren't where co
 - One test tells a complete story: start broker, start exporter, publish, scrape `/metrics`,
   assert the exposition text.
 - Cover: QoS 1 and 2, a `$SYS` topic containing a space, a device name containing a space, broker
-  restart and reconnect, SIGHUP reload preserving a counter offset.
+  restart and reconnect.
 - Use inline labels for each **logical scenario step** (the user-visible action: "publish a meter
   reading", "restart the broker"). Do not label technical mechanics. Skip the test-level
   docstring; the test name carries the intent.
