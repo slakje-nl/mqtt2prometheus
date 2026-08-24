@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/slakje-nl/mqtt2prometheus/internal/broker"
@@ -19,6 +21,8 @@ const (
 	defaultWindow = 30 * time.Second
 	defaultDepth  = 1
 )
+
+var shortFlagName = regexp.MustCompile(`([ :])-([A-Za-z])`)
 
 const usageText = `mqtt2prometheus exports selected MQTT messages as Prometheus metrics.
 
@@ -113,7 +117,7 @@ func (c Command) healthcheck(args []string) error {
 
 func (c Command) version(args []string) error {
 	flags := c.flagSet("version")
-	if err := parse(flags, args, 0); err != nil {
+	if err := c.parse(flags, args, 0); err != nil {
 		return err
 	}
 
@@ -128,7 +132,7 @@ func (c Command) discover(ctx context.Context, args []string) error {
 	count := flags.Int("count", 0, "stop after this many prefixes; 0 keeps listening")
 	depth := flags.Int("depth", defaultDepth, "how many topic segments make a prefix")
 
-	if err := parse(flags, args, 1); err != nil {
+	if err := c.parse(flags, args, 1); err != nil {
 		return err
 	}
 
@@ -154,7 +158,7 @@ func (c Command) capture(ctx context.Context, args []string) error {
 	window := flags.Duration("for", defaultWindow, "how long to listen; 0 listens until interrupted")
 	count := flags.Int("count", 0, "stop after this many messages; 0 keeps listening")
 
-	if err := parse(flags, args, 1); err != nil {
+	if err := c.parse(flags, args, 1); err != nil {
 		return err
 	}
 
@@ -229,13 +233,14 @@ func closingNotice(w io.Writer) error {
 
 func (c Command) flagSet(name string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
-	flags.SetOutput(c.ErrOut)
+	flags.SetOutput(io.Discard)
+	flags.Usage = func() {}
 
 	return flags
 }
 
 func (c Command) settings(flags *flag.FlagSet, args []string, maxArgs int) (string, error) {
-	if err := parse(flags, args, maxArgs); err != nil {
+	if err := c.parse(flags, args, maxArgs); err != nil {
 		return "", err
 	}
 
@@ -250,9 +255,13 @@ func (c Command) usage(message string) error {
 	return &UsageError{Message: message}
 }
 
-func parse(flags *flag.FlagSet, args []string, maxArgs int) error {
+func (c Command) parse(flags *flag.FlagSet, args []string, maxArgs int) error {
 	if err := flags.Parse(args); err != nil {
-		return err
+		if usageErr := c.writeFlagUsage(flags); usageErr != nil {
+			return usageErr
+		}
+
+		return doubleDashed(err)
 	}
 
 	if flags.NArg() > maxArgs {
@@ -260,6 +269,41 @@ func parse(flags *flag.FlagSet, args []string, maxArgs int) error {
 	}
 
 	return nil
+}
+
+func (c Command) writeFlagUsage(flags *flag.FlagSet) error {
+	if _, err := io.WriteString(c.ErrOut, flagUsage(flags)); err != nil {
+		return fmt.Errorf("writing usage: %w", err)
+	}
+
+	return nil
+}
+
+func doubleDashed(err error) error {
+	if errors.Is(err, flag.ErrHelp) {
+		return err
+	}
+
+	return &UsageError{Message: shortFlagName.ReplaceAllString(err.Error(), "$1--$2")}
+}
+
+func flagUsage(flags *flag.FlagSet) string {
+	lines := []string{fmt.Sprintf("Usage of %s:", flags.Name())}
+
+	flags.VisitAll(func(f *flag.Flag) {
+		kind, usage := flag.UnquoteUsage(f)
+		lines = append(lines, fmt.Sprintf("  --%s %s", f.Name, kind), "    \t"+usage+shownDefault(f))
+	})
+
+	return strings.Join(lines, "\n") + "\n"
+}
+
+func shownDefault(f *flag.Flag) string {
+	if f.DefValue == "" || f.DefValue == "0" || f.DefValue == "false" {
+		return ""
+	}
+
+	return fmt.Sprintf(" (default %s)", f.DefValue)
 }
 
 func configDir() (string, error) {
