@@ -21,13 +21,15 @@ LABEL org.opencontainers.image.source="https://github.com/slakje-nl/mqtt2prometh
       org.opencontainers.image.description="Export selected MQTT messages as Prometheus metrics" \
       org.opencontainers.image.licenses="MIT"
 
-COPY --from=build /out/mqtt2prometheus /mqtt2prometheus
+COPY --from=build /out/mqtt2prometheus /usr/local/bin/mqtt2prometheus
+
+ENV MQTT2PROMETHEUS_CONFIG_DIR=/config
 
 USER nonroot:nonroot
 EXPOSE 9000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["/mqtt2prometheus", "--healthcheck"]
+    CMD ["/usr/local/bin/mqtt2prometheus", "healthcheck"]
 
-ENTRYPOINT ["/mqtt2prometheus"]
-CMD ["--config", "/config"]
+ENTRYPOINT ["/usr/local/bin/mqtt2prometheus"]
+CMD ["run"]
