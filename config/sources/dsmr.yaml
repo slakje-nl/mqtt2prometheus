@@ -1,0 +1,190 @@
+name: dsmr
+subscribe: 'dsmr/#'
+last_updated_metric: dsmr_last_update
+
+labels:
+  mac_address: {from: json, path: mac_address}
+  gateway_model: {from: json, path: gateway_model}
+
+rules:
+  - match: '^dsmr/json$'
+    metric_name: dsmr_energy_delivered_kwh_total
+    type: counter
+    help: Electricity drawn from the grid, per tariff
+    labels:
+      tariff: {from: static, value: low}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: EnergyDeliveredTariff1}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_energy_delivered_kwh_total
+    type: counter
+    help: Electricity drawn from the grid, per tariff
+    labels:
+      tariff: {from: static, value: normal}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: EnergyDeliveredTariff2}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_energy_returned_kwh_total
+    type: counter
+    help: Electricity fed back into the grid, per tariff
+    labels:
+      tariff: {from: static, value: low}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: EnergyReturnedTariff1}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_energy_returned_kwh_total
+    type: counter
+    help: Electricity fed back into the grid, per tariff
+    labels:
+      tariff: {from: static, value: normal}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: EnergyReturnedTariff2}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_delivered_kw
+    type: gauge
+    help: Power drawn from the grid right now, as the meter reports it
+    labels:
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerDelivered_total}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_returned_kw
+    type: gauge
+    help: Power fed back into the grid right now, as the meter reports it
+    labels:
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerReturned_total}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_delivered_netto_watts
+    type: gauge
+    help: Power drawn minus power returned, summed across the phases by the gateway
+    labels:
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerDeliveredNetto}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_delivered_phase_watts
+    type: gauge
+    help: Power drawn from the grid per phase
+    labels:
+      phase: {from: static, value: l1}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerDelivered_l1}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_delivered_phase_watts
+    type: gauge
+    help: Power drawn from the grid per phase
+    labels:
+      phase: {from: static, value: l2}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerDelivered_l2}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_delivered_phase_watts
+    type: gauge
+    help: Power drawn from the grid per phase
+    labels:
+      phase: {from: static, value: l3}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerDelivered_l3}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_returned_phase_watts
+    type: gauge
+    help: Power fed back into the grid per phase
+    labels:
+      phase: {from: static, value: l1}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerReturned_l1}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_returned_phase_watts
+    type: gauge
+    help: Power fed back into the grid per phase
+    labels:
+      phase: {from: static, value: l2}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerReturned_l2}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_power_returned_phase_watts
+    type: gauge
+    help: Power fed back into the grid per phase
+    labels:
+      phase: {from: static, value: l3}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: PowerReturned_l3}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_voltage_volts
+    type: gauge
+    help: Supply voltage per phase
+    labels:
+      phase: {from: static, value: l1}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: Voltage_l1}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_voltage_volts
+    type: gauge
+    help: Supply voltage per phase
+    labels:
+      phase: {from: static, value: l2}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: Voltage_l2}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_voltage_volts
+    type: gauge
+    help: Supply voltage per phase
+    labels:
+      phase: {from: static, value: l3}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: Voltage_l3}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_current_amperes
+    type: gauge
+    help: Current per phase
+    labels:
+      phase: {from: static, value: l1}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: Current_l1}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_current_amperes
+    type: gauge
+    help: Current per phase
+    labels:
+      phase: {from: static, value: l2}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: Current_l2}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_current_amperes
+    type: gauge
+    help: Current per phase
+    labels:
+      phase: {from: static, value: l3}
+      equipment_id: {from: json, path: Equipment_Id}
+    value: {from: json, path: Current_l3}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_gas_delivered_m3_total
+    type: counter
+    help: Gas drawn through the meter
+    labels:
+      gas_equipment_id: {from: json, path: GasEquipment_Id}
+    value: {from: json, path: GasDelivered}
+
+  - match: '^dsmr/json$'
+    metric_name: dsmr_gateway_wifi_rssi_dbm
+    type: gauge
+    help: Signal strength of the gateway's wifi link
+    value: {from: json, path: wifi_rssi}
