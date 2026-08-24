@@ -185,9 +185,9 @@ moment it first appears, and nothing else:
 
 ```
 $ docker exec mqtt2prometheus mqtt2prometheus discover
-dsmr/reading
+dsmr
 zigbee2mqtt
-$SYS/broker
+$SYS
 ```
 
 Only prefixes go to stdout, so `discover > topics.txt` gives you a clean list. Progress goes to
@@ -195,9 +195,9 @@ stderr: `waiting for messages` when it starts, `closing` when it stops, and noth
 unless the broker misbehaves.
 
 Pass a prefix to narrow it — `discover dsmr` subscribes to `dsmr/#` — and `--depth` to change how
-many segments make a prefix (two by default). `--for` takes a duration (`--for 5m`) and `--count`
-stops after that many prefixes; `--for 0` and `--count 0` mean no limit. Ctrl-C always stops
-cleanly.
+many segments make a prefix; one by default, so `--depth 2` turns `dsmr` into `dsmr/reading`. `--for`
+takes a duration (`--for 5m`) and `--count` stops after that many prefixes; `--for 0` and `--count 0`
+mean no limit. Ctrl-C always stops cleanly.
 
 Retained messages arrive the moment it subscribes, so a device that only publishes hourly still
 shows up in the first few seconds. It connects with its own client id, so running it never

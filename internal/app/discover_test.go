@@ -77,13 +77,16 @@ func TestExecute_DiscoverPrintsEachPrefixOnceAsItAppears(t *testing.T) {
 
 	t.Setenv(ConfigDirEnv, writeConfigDir(t, brokerURL, ":0", map[string]string{"zwave.yaml": zwaveSource}))
 
-	out, errOut := followUntil(t, []string{"discover", "--for", "0"},
-		"dsmr/reading", "zigbee2mqtt/example device")
+	out, errOut := followUntil(t, []string{"discover", "--for", "0"}, "dsmr\n", "zigbee2mqtt\n")
 
-	require.Equal(t, 1, strings.Count(out, "dsmr/reading\n"))
+	require.Equal(t, 1, strings.Count(out, "dsmr\n"))
 	require.Equal(t, "waiting for messages\nclosing\n", errOut)
 
-	narrowed, _ := followUntil(t, []string{"discover", "--for", "0", "dsmr"}, "dsmr/reading")
+	deeper, _ := followUntil(t, []string{"discover", "--for", "0", "--depth", "2"},
+		"dsmr/reading", "zigbee2mqtt/example device")
+	require.Equal(t, 1, strings.Count(deeper, "dsmr/reading\n"))
+
+	narrowed, _ := followUntil(t, []string{"discover", "--for", "0", "dsmr"}, "dsmr\n")
 	require.NotContains(t, narrowed, "zigbee2mqtt")
 
 	var single, singleErr bytes.Buffer
