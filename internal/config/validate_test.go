@@ -136,14 +136,35 @@ func TestValidate_RuleFieldValues(t *testing.T) {
 		"value regex 2 groups":  {func(r *Rule) { r.Value.Regex = "^([0-9]+) ([a-z]+)$" }, "value.regex must have exactly one capture group, got 2"},
 		"zero scale":            {func(r *Rule) { s := 0.0; r.Value.Scale = &s }, "value.scale must not be zero"},
 		"bad label name": {func(r *Rule) {
-			r.Labels = map[string]string{"not a label": "x"}
+			r.Labels = map[string]Label{"not a label": {From: FromStatic, Value: "x"}}
 		}, `label "not a label" is not a valid Prometheus label name`},
 		"label collides with capture": {func(r *Rule) {
-			r.Labels = map[string]string{"node": "x"}
+			r.Labels = map[string]Label{"node": {From: FromStatic, Value: "x"}}
 		}, `label "node" collides with a capture group of the same name`},
 		"label references unknown capture": {func(r *Rule) {
-			r.Labels = map[string]string{"where": "{nope}"}
+			r.Labels = map[string]Label{"where": {From: FromStatic, Value: "{nope}"}}
 		}, `label "where" references {nope}, which is not a capture group of match`},
+		"label without from": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {Value: "here"}}
+		}, `label "where": from is required`},
+		"label with unknown from": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {From: "xml", Path: "here"}}
+		}, `label "where": from must be "static" or "json", got "xml"`},
+		"static label without value": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {From: FromStatic}}
+		}, `label "where": value is required when from is static`},
+		"static label with path": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {From: FromStatic, Value: "here", Path: "here"}}
+		}, `label "where": path is only valid when from is json`},
+		"json label without path": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {From: FromJSON}}
+		}, `label "where": path is required when from is json`},
+		"json label with value": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {From: FromJSON, Path: "here", Value: "here"}}
+		}, `label "where": value is only valid when from is static`},
+		"label maps to nothing": {func(r *Rule) {
+			r.Labels = map[string]Label{"where": {From: FromJSON, Path: "here", Map: map[string]string{"a": ""}}}
+		}, `label "where": map values must not be empty`},
 	}
 
 	for name, tc := range cases {
@@ -204,10 +225,31 @@ func TestValidate_ConsistencyCheckSkipsUnvalidatableRules(t *testing.T) {
 
 func TestValidate_LabelConsumesCapture(t *testing.T) {
 	cfg := validConfig()
-	cfg.SourceList[0].Rules[0].Labels = map[string]string{"who": "node-{node}"}
+	declared := map[string]Label{"who": {From: FromStatic, Value: "node-{node}"}}
+	cfg.SourceList[0].Rules[0].Labels = declared
 
 	require.NoError(t, cfg.Validate())
-	require.Equal(t, []string{"who"}, LabelNames([]string{"node"}, map[string]string{"who": "node-{node}"}))
+	require.Equal(t, []string{"who"}, LabelNames([]string{"node"}, declared))
+}
+
+func TestValidate_SourceLabelsCannotReferenceACapture(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Labels = map[string]Label{"who": {From: FromStatic, Value: "node-{node}"}}
+
+	err := cfg.Validate()
+
+	require.ErrorContains(t, err, `label "who" references {node}, which is not a capture group of match`)
+}
+
+func TestValidate_SourceLabelsReachEveryRule(t *testing.T) {
+	cfg := validConfig()
+	cfg.SourceList[0].Labels = map[string]Label{"mac_address": {From: FromJSON, Path: "mac_address"}}
+
+	err := cfg.Validate()
+	require.NoError(t, err)
+
+	names := LabelNames(nil, cfg.SourceList[0].Labels)
+	require.Equal(t, []string{"mac_address"}, names)
 }
 
 func TestProblems_ErrorFormatsEveryProblem(t *testing.T) {

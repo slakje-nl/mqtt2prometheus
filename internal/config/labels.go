@@ -24,15 +24,15 @@ func ExpandTemplate(s string, values map[string]string) string {
 	})
 }
 
-func LabelNames(captures []string, labelSets ...map[string]string) []string {
+func LabelNames(captures []string, labelSets ...map[string]Label) []string {
 	consumed := map[string]struct{}{}
 	set := map[string]struct{}{}
 
 	for _, labels := range labelSets {
-		for name, value := range labels {
+		for name, label := range labels {
 			set[name] = struct{}{}
 
-			for _, ref := range TemplateRefs(value) {
+			for _, ref := range TemplateRefs(label.Value) {
 				consumed[ref] = struct{}{}
 			}
 		}

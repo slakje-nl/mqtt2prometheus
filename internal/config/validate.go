@@ -104,6 +104,8 @@ func (s Source) validate(p Problems) Problems {
 		p = append(p, s.Path+": at least one rule is required")
 	}
 
+	p = validateLabels(p, s.Path, nil, s.Labels)
+
 	for i, rule := range s.Rules {
 		p = rule.validate(p, fmt.Sprintf("%s: rule %d", s.Path, i))
 	}
@@ -169,7 +171,7 @@ func validateMatch(match, where string) ([]string, Problems) {
 	return captures, p
 }
 
-func validateLabels(p Problems, where string, captures []string, labels map[string]string) Problems {
+func validateLabels(p Problems, where string, captures []string, labels map[string]Label) Problems {
 	captureSet := make(map[string]struct{}, len(captures))
 	for _, name := range captures {
 		captureSet[name] = struct{}{}
@@ -184,10 +186,45 @@ func validateLabels(p Problems, where string, captures []string, labels map[stri
 			p = append(p, fmt.Sprintf("%s: label %q collides with a capture group of the same name", where, name))
 		}
 
-		for _, ref := range TemplateRefs(labels[name]) {
+		p = labels[name].validate(p, fmt.Sprintf("%s: label %q", where, name))
+
+		for _, ref := range TemplateRefs(labels[name].Value) {
 			if _, known := captureSet[ref]; !known {
 				p = append(p, fmt.Sprintf("%s: label %q references {%s}, which is not a capture group of match", where, name, ref))
 			}
+		}
+	}
+
+	return p
+}
+
+func (l Label) validate(p Problems, where string) Problems {
+	switch l.From {
+	case "":
+		return append(p, where+": from is required")
+	case FromStatic:
+		if l.Value == "" {
+			p = append(p, where+": value is required when from is static")
+		}
+
+		if l.Path != "" {
+			p = append(p, where+": path is only valid when from is json")
+		}
+	case FromJSON:
+		if l.Path == "" {
+			p = append(p, where+": path is required when from is json")
+		}
+
+		if l.Value != "" {
+			p = append(p, where+": value is only valid when from is static")
+		}
+	default:
+		return append(p, fmt.Sprintf("%s: from must be %q or %q, got %q", where, FromStatic, FromJSON, l.From))
+	}
+
+	for _, mapped := range l.Map {
+		if mapped == "" {
+			p = append(p, where+": map values must not be empty")
 		}
 	}
 
@@ -254,7 +291,7 @@ func (s Source) validateMetricConsistency(p Problems, metricLabels map[string]st
 	return p
 }
 
-func sortedKeys(m map[string]string) []string {
+func sortedKeys(m map[string]Label) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

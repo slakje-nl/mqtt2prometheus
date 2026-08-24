@@ -27,25 +27,32 @@ type Log struct {
 }
 
 type Source struct {
-	Name              string            `yaml:"name"`
-	Broker            string            `yaml:"broker"`
-	Subscribe         string            `yaml:"subscribe"`
-	QoS               *uint8            `yaml:"qos"`
-	LastUpdatedMetric string            `yaml:"last_updated_metric"`
-	Labels            map[string]string `yaml:"labels"`
-	Rules             []Rule            `yaml:"rules"`
+	Name              string           `yaml:"name"`
+	Broker            string           `yaml:"broker"`
+	Subscribe         string           `yaml:"subscribe"`
+	QoS               *uint8           `yaml:"qos"`
+	LastUpdatedMetric string           `yaml:"last_updated_metric"`
+	Labels            map[string]Label `yaml:"labels"`
+	Rules             []Rule           `yaml:"rules"`
 
 	Path string `yaml:"-"`
 }
 
 type Rule struct {
-	Match             string            `yaml:"match"`
-	MetricName        string            `yaml:"metric_name"`
-	Type              string            `yaml:"type"`
-	Help              string            `yaml:"help"`
-	Value             Value             `yaml:"value"`
-	LastUpdatedMetric string            `yaml:"last_updated_metric"`
-	Labels            map[string]string `yaml:"labels"`
+	Match             string           `yaml:"match"`
+	MetricName        string           `yaml:"metric_name"`
+	Type              string           `yaml:"type"`
+	Help              string           `yaml:"help"`
+	Value             Value            `yaml:"value"`
+	LastUpdatedMetric string           `yaml:"last_updated_metric"`
+	Labels            map[string]Label `yaml:"labels"`
+}
+
+type Label struct {
+	From  string            `yaml:"from"`
+	Value string            `yaml:"value"`
+	Path  string            `yaml:"path"`
+	Map   map[string]string `yaml:"map"`
 }
 
 type Value struct {
@@ -60,8 +67,9 @@ const (
 	TypeGauge   = "gauge"
 	TypeCounter = "counter"
 
-	FromJSON = "json"
-	FromRaw  = "raw"
+	FromJSON   = "json"
+	FromRaw    = "raw"
+	FromStatic = "static"
 )
 
 func (s Source) EffectiveQoS(global uint8) uint8 {
