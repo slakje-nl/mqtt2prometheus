@@ -147,6 +147,9 @@ func TestExecute_CaptureRejectsBadArguments(t *testing.T) {
 	require.ErrorAs(t, err, &usage)
 	require.ErrorContains(t, err, "-count cannot be negative")
 
+	err = command.Execute(t.Context(), []string{"capture", "-for", "-5m", "dsmr/#"})
+	require.ErrorContains(t, err, "-for cannot be negative")
+
 	err = command.Execute(t.Context(), []string{"capture", "-nope"})
 	require.ErrorContains(t, err, "not defined")
 
