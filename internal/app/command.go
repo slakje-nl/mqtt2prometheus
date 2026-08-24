@@ -17,7 +17,7 @@ const ConfigDirEnv = "MQTT2PROMETHEUS_CONFIG_DIR"
 
 const (
 	defaultWindow = 30 * time.Second
-	defaultDepth  = 2
+	defaultDepth  = 1
 )
 
 const usageText = `mqtt2prometheus exports selected MQTT messages as Prometheus metrics.
