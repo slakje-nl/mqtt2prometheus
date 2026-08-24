@@ -66,13 +66,15 @@ Docker Compose Manager plugin, paste `compose.yaml` as the stack and rename `.en
 MQTT_BROKER=tcp://192.0.2.10:1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
-MQTT2PROMETHEUS_LOG_LEVEL=warn
+#MQTT2PROMETHEUS_LOG_LEVEL=info
 ```
 
 The broker address and the credentials are injected at runtime and never live in the config files,
 so the config directory is safe to copy around and to paste into an issue. `.env` is the one file
-that holds them, and it is the one file you never commit anywhere. Any of the four left unset stops
-the stack with a message naming it rather than starting something that connects nowhere.
+that holds them, and it is the one file you never commit anywhere. Any of the three left unset stops
+the stack with a message naming it rather than starting something that connects nowhere. The log
+level is the exception: `compose.yaml` defaults it to `warn`, so you only set it to turn debugging
+on.
 
 If your appdata lives somewhere other than `/mnt/user/appdata/mqtt2prometheus`, change the bind
 mount in `compose.yaml`; the `/config` side of it is what the image expects and should stay.
@@ -149,8 +151,8 @@ and none of them take a config path — the configuration directory comes from t
 
 There is no `--log-level` flag either. The log level is `log.level` in the config, and the example
 config reads it from `MQTT2PROMETHEUS_LOG_LEVEL`, so one variable sets it for every subcommand.
-Logs are JSON on stderr. Leaving the variable unset stops the process naming it, the same way an
-unset `MQTT_BROKER` does.
+Logs are JSON on stderr. `compose.yaml` defaults the variable to `warn`; running the binary outside
+compose with it unset stops the process naming it, the same way an unset `MQTT_BROKER` does.
 
 | level | what you get |
 |---|---|
