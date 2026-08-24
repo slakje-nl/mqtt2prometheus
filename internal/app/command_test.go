@@ -62,10 +62,10 @@ func TestExecute_ReportsAFailedVersionWrite(t *testing.T) {
 func TestExecute_TreatsHelpAsSuccess(t *testing.T) {
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"run", "--help"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"verify", "--help"})
 
 	require.NoError(t, err)
-	require.Contains(t, errOut.String(), "log-level")
+	require.Contains(t, errOut.String(), "Usage of verify")
 }
 
 func TestExecute_RejectsAnUnknownFlag(t *testing.T) {
@@ -97,6 +97,9 @@ func TestExecute_RequiresTheConfigDirEnvironmentVariable(t *testing.T) {
 	require.ErrorContains(t, err, ConfigDirEnv+" is not set")
 
 	err = testCommand(&out, &errOut).Execute(t.Context(), []string{"healthcheck"})
+	require.ErrorContains(t, err, ConfigDirEnv+" is not set")
+
+	err = testCommand(&out, &errOut).Execute(t.Context(), []string{"run"})
 	require.ErrorContains(t, err, ConfigDirEnv+" is not set")
 }
 
@@ -132,7 +135,7 @@ func TestExecute_RunsUntilTheContextIsCancelled(t *testing.T) {
 
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(ctx, []string{"run", "--log-level", "error"})
+	err := testCommand(&out, &errOut).Execute(ctx, []string{"run"})
 
 	require.NoError(t, err)
 }
@@ -147,10 +150,12 @@ func TestExecute_ReportsAnUnreadableConfigDirectory(t *testing.T) {
 	require.ErrorContains(t, err, "reading config")
 }
 
-func TestEffectiveLevel_PrefersTheOverride(t *testing.T) {
-	dir := writeConfigDir(t, "tcp://broker:1883", ":9000", map[string]string{"zwave.yaml": zwaveSource})
+func TestLoadConfig_RejectsAnInvalidConfiguration(t *testing.T) {
+	dir := writeConfigDir(t, "tcp://broker:1883", ":9000", map[string]string{
+		"broken.yaml": "name: broken\nsubscribe: 'x/#'\nrules: []\n",
+	})
 
-	require.Equal(t, "debug", effectiveLevel(dir, "debug"))
-	require.Equal(t, "error", effectiveLevel(dir, ""))
-	require.Empty(t, effectiveLevel(filepath.Join(t.TempDir(), "absent"), ""))
+	_, err := loadConfig(dir)
+
+	require.ErrorContains(t, err, "at least one rule is required")
 }

@@ -10,6 +10,6 @@ server:
   listen: ":9000"
 
 log:
-  level: info
+  level: ${MQTT2PROMETHEUS_LOG_LEVEL}
 
 sources: sources/*.yaml

@@ -16,7 +16,7 @@ const ConfigDirEnv = "MQTT2PROMETHEUS_CONFIG_DIR"
 const usageText = `mqtt2prometheus exports selected MQTT messages as Prometheus metrics.
 
 usage:
-  mqtt2prometheus run [--log-level LEVEL]
+  mqtt2prometheus run
   mqtt2prometheus verify
   mqtt2prometheus healthcheck
   mqtt2prometheus version
@@ -67,15 +67,17 @@ func (c Command) dispatch(ctx context.Context, args []string) error {
 }
 
 func (c Command) run(ctx context.Context, args []string) error {
-	flags := c.flagSet("run")
-	logLevel := flags.String("log-level", "", "override log.level from the configuration")
-
-	dir, err := c.settings(flags, args)
+	dir, err := c.settings(c.flagSet("run"), args)
 	if err != nil {
 		return err
 	}
 
-	return New(dir, c.Build, NewLogger(effectiveLevel(dir, *logLevel))).Run(ctx)
+	cfg, err := loadConfig(dir)
+	if err != nil {
+		return err
+	}
+
+	return New(dir, c.Build, NewLogger(cfg.Log.Level)).Run(ctx)
 }
 
 func (c Command) verify(args []string) error {
@@ -151,15 +153,15 @@ func configDir() (string, error) {
 	return dir, nil
 }
 
-func effectiveLevel(dir, override string) string {
-	if override != "" {
-		return override
-	}
-
+func loadConfig(dir string) (*config.Config, error) {
 	cfg, err := config.Load(dir)
 	if err != nil {
-		return ""
+		return nil, err
 	}
 
-	return cfg.Log.Level
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
