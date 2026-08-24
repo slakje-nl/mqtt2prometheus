@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -55,7 +54,7 @@ func newExtractor(v config.Value) (extractor, error) {
 	return e, nil
 }
 
-func (e extractor) extract(payload []byte) (reading, error) {
+func (e extractor) extract(payload *Payload) (reading, error) {
 	raw, present, err := e.raw(payload)
 	if err != nil {
 		return skipped, err
@@ -77,39 +76,12 @@ func (e extractor) extract(payload []byte) (reading, error) {
 	return result, nil
 }
 
-func (e extractor) raw(payload []byte) (any, bool, error) {
+func (e extractor) raw(payload *Payload) (any, bool, error) {
 	if !e.fromJSON {
-		return string(payload), true, nil
+		return string(payload.raw), true, nil
 	}
 
-	return walkJSON(payload, e.path)
-}
-
-func walkJSON(payload []byte, path []string) (any, bool, error) {
-	var document any
-	if err := json.Unmarshal(payload, &document); err != nil {
-		return nil, false, fmt.Errorf("%w: %w", ErrBadJSON, err)
-	}
-
-	for _, segment := range path {
-		object, isObject := document.(map[string]any)
-		if !isObject {
-			return nil, false, nil
-		}
-
-		next, present := object[segment]
-		if !present {
-			return nil, false, nil
-		}
-
-		document = next
-	}
-
-	if document == nil {
-		return nil, false, nil
-	}
-
-	return document, true, nil
+	return payload.walk(e.path)
 }
 
 func (e extractor) toNumber(raw any) (reading, error) {

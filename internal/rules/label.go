@@ -33,7 +33,7 @@ func newLabelExtractor(declared config.Label) labelExtractor {
 	return e
 }
 
-func (e labelExtractor) resolve(captured map[string]string, payload []byte) (string, bool, error) {
+func (e labelExtractor) resolve(captured map[string]string, payload *Payload) (string, bool, error) {
 	value, present, err := e.read(captured, payload)
 	if err != nil || !present {
 		return "", false, err
@@ -48,12 +48,12 @@ func (e labelExtractor) resolve(captured map[string]string, payload []byte) (str
 	return mapped, found, nil
 }
 
-func (e labelExtractor) read(captured map[string]string, payload []byte) (string, bool, error) {
+func (e labelExtractor) read(captured map[string]string, payload *Payload) (string, bool, error) {
 	if !e.fromJSON {
 		return config.ExpandTemplate(e.static, captured), true, nil
 	}
 
-	raw, present, err := walkJSON(payload, e.path)
+	raw, present, err := payload.walk(e.path)
 	if err != nil || !present {
 		return "", false, err
 	}
@@ -95,7 +95,7 @@ func CompileLabels(declared map[string]config.Label) Labels {
 	return compiled
 }
 
-func (l Labels) Resolve(captured map[string]string, payload []byte) (map[string]string, bool, error) {
+func (l Labels) Resolve(captured map[string]string, payload *Payload) (map[string]string, bool, error) {
 	resolved := make(map[string]string, len(l.names))
 
 	for _, name := range l.names {

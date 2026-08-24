@@ -72,8 +72,10 @@ func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) 
 		matched  bool
 	)
 
+	payload := rules.NewPayload(msg.Payload)
+
 	for _, rule := range s.rules {
-		result, hit, err := rule.Apply(msg.Topic, msg.Payload)
+		result, hit, err := rule.Apply(msg.Topic, payload)
 		if !hit {
 			continue
 		}
@@ -98,7 +100,7 @@ func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) 
 	}
 
 	if matched && s.lastUpdatedMetric != "" {
-		labels, present, err := s.labels.Resolve(nil, msg.Payload)
+		labels, present, err := s.labels.Resolve(nil, payload)
 
 		switch {
 		case err != nil:

@@ -14,7 +14,7 @@ func extract(t *testing.T, v config.Value, payload string) (reading, error) {
 	e, err := newExtractor(v)
 	require.NoError(t, err)
 
-	return e.extract([]byte(payload))
+	return e.extract(NewPayload([]byte(payload)))
 }
 
 func TestExtract_JSONNumber(t *testing.T) {
