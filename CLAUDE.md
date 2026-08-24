@@ -24,6 +24,7 @@ just test             # unit tests + 100% coverage gate + feature tests (require
 just test-unit        # unit tests + coverage gate (needs Docker for internal/broker)
 just test-feature     # feature tests only (starts a real mosquitto container)
 just security         # go mod verify + govulncheck + gosec + gitleaks (same as CI)
+just compose-check    # docker compose config -q against compose.yaml
 just docker-build     # build the image locally
 ```
 
@@ -65,6 +66,9 @@ Conventional commits: `type(scope): description`. Types: `feat`, `fix`, `refacto
 deploy workflow, no environment-specific secrets. Merging to `main` tags the next integer version
 and pushes `ghcr.io/slakje-nl/mqtt2prometheus:vN` and `:latest`. Rolling that out is manual: the
 user copies a config directory to their own server and restarts the container.
+
+`compose.yaml` and `.env.example` in the repository root are what an operator copies to their own
+server; `.env` itself is gitignored and must never be committed.
 
 `config/` in this repository is an **example** configuration with placeholder values. It is
 verified by `verify` in CI, which is what stands between a bad rule and a broken
@@ -376,7 +380,7 @@ refactor it — don't push it into a feature test. Feature tests aren't where co
   next integer tag from existing `v*` tags, tags the commit, and pushes
   `ghcr.io/slakje-nl/mqtt2prometheus:vN` and `:latest`.
 - CI on every PR: `format`, `test` (unit + coverage gate + feature), `security`, `verify`
-  against `config/`, and a Docker build that is not pushed.
+  against `config/`, `compose-check` against `compose.yaml`, and a Docker build that is not pushed.
 - Dependabot weekly for `gomod`, `docker` and `github-actions`, grouped, with scoped commit
   prefixes.
 

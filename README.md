@@ -58,27 +58,24 @@ Copy the files from [`config/`](config) as a starting point. Delete the sources 
 
 ### 2. Add the stack
 
-In the Docker Compose Manager plugin, add a stack and paste:
+Copy [`compose.yaml`](compose.yaml) and [`.env.example`](.env.example) from this repository. In the
+Docker Compose Manager plugin, paste `compose.yaml` as the stack and rename `.env.example` to
+`.env` next to it:
 
-```yaml
-services:
-  mqtt2prometheus:
-    image: ghcr.io/slakje-nl/mqtt2prometheus:latest
-    container_name: mqtt2prometheus
-    restart: unless-stopped
-    ports:
-      - '9000:9000'
-    volumes:
-      - /mnt/user/appdata/mqtt2prometheus:/config:ro
-    environment:
-      MQTT_BROKER: ${MQTT_BROKER:?e.g. tcp://192.0.2.10:1883}
-      MQTT_USERNAME: ${MQTT_USERNAME:?}
-      MQTT_PASSWORD: ${MQTT_PASSWORD:?}
+```
+MQTT_BROKER=tcp://192.0.2.10:1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT2PROMETHEUS_LOG_LEVEL=warn
 ```
 
-Put the three values in the stack's `.env`. The broker address and the credentials are injected at
-runtime and never live in the config files, so the config directory is safe to copy around and to
-paste into an issue.
+The broker address and the credentials are injected at runtime and never live in the config files,
+so the config directory is safe to copy around and to paste into an issue. `.env` is the one file
+that holds them, and it is the one file you never commit anywhere. Any of the four left unset stops
+the stack with a message naming it rather than starting something that connects nowhere.
+
+If your appdata lives somewhere other than `/mnt/user/appdata/mqtt2prometheus`, change the bind
+mount in `compose.yaml`; the `/config` side of it is what the image expects and should stay.
 
 ### 3. Check what it is allowed to reach
 
@@ -91,7 +88,7 @@ Worth doing for any container you did not build yourself. This one asks for:
 - **One published port**: 9000, for Prometheus to scrape.
 - It runs as **nonroot** on a distroless base, about 13 MB, with no shell in the image.
 
-If the compose file above ever asks for more than that, something is wrong.
+If `compose.yaml` ever asks for more than that, something is wrong.
 
 ### 4. Confirm it works
 
@@ -319,6 +316,7 @@ just format     gofmt, vet, golangci-lint
 just test       unit tests with a 100% coverage gate, then the feature tests
 just verify     verify config/ without connecting to a broker
 just security   govulncheck, gosec, gitleaks
+just compose-check  parse compose.yaml the way CI does
 ```
 
 The feature tests start a real Mosquitto in a container, so they need Docker.
