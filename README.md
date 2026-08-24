@@ -108,6 +108,8 @@ docker exec mqtt2prometheus mqtt2prometheus verify
 It prints what every source resolved to and exits non-zero on any problem. Credentials are
 redacted in the output.
 
+There is no reload signal: once `verify` is happy, restart the container to pick the change up.
+
 ### 5. Point Prometheus at it
 
 ```yaml
