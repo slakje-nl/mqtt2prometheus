@@ -239,6 +239,7 @@ The only optional fields are the ones that are genuinely a feature, not a knob:
 | `help` | rule | absent means no `# HELP` line, which is exactly today's behaviour |
 | `last_updated_metric` | source, rule | a heartbeat is opt-in |
 | `labels` | source, rule | extra labels beyond the regex captures are opt-in |
+| `map` | label | rewriting an extracted label value is opt-in |
 | `scale`, `regex`, `map` | value | transforms are opt-in |
 | `broker` | source | absent means use the process-level broker |
 
@@ -259,6 +260,18 @@ happens to exist.
 different label sets, a named capture that collides with a declared label, an unknown
 `value.from`, a `type` that is neither `gauge` nor `counter`, and a source whose `subscribe`
 filter cannot match its own rules' regexes.
+
+**A label is a mapping, never a bare string.** `{from: static, value: l1}` or
+`{from: json, path: mac_address}`, with an optional `map` rewriting the result. Nothing is implied
+here either: `from` is required, `value` belongs to `static` and `path` to `json`, and `verify`
+rejects every other combination. A source-level label may not reference a `{capture}` — it lands on
+every rule in the file, and each rule captures something different.
+
+**A label that cannot be resolved skips the sample.** A path missing from the payload, or a value
+with no entry in `map`, produces no metric and no heartbeat rather than an empty label, because an
+empty label quietly moves the reading to a different series. This is what lets an identifier the
+device publishes — a mac address, a meter id — be a label without ever appearing in a config file,
+which is the only way it can be a label at all in a public repository.
 
 ---
 

@@ -264,7 +264,7 @@ One file per source, in `sources/`. Sources pointing at the same broker share on
 | `qos` | no | Overrides `mqtt.qos` for this source |
 | `broker` | no | Connect to a different broker |
 | `last_updated_metric` | no | Gauge set to the current time whenever any rule here matches |
-| `labels` | no | Labels added to every metric from this source |
+| `labels` | no | Labels added to every metric from this source, and to `last_updated_metric` |
 | `rules` | yes | At least one |
 
 ### Rules
@@ -277,9 +277,30 @@ One file per source, in `sources/`. Sources pointing at the same broker share on
 | `help` | no | The `# HELP` text |
 | `value` | yes | Where the number comes from |
 | `last_updated_metric` | no | Gauge set to the current time, carrying this rule's labels |
-| `labels` | no | Extra labels; `{capture}` is expanded, and a capture used here stops emitting a label of its own |
+| `labels` | no | Extra labels, static or taken from the payload |
 
 Every rule that matches a topic runs, so one message can produce several metrics.
+
+### Labels
+
+Every label is a mapping saying where its value comes from. A source's labels land on all of its
+rules and on its `last_updated_metric`; a rule's labels are its own, and win on a name clash.
+
+```yaml
+labels:
+  phase: {from: static, value: l1}
+  endpoint: {from: static, value: 'endpoint_{ep}'}   # {ep} is a capture group of match
+  mac_address: {from: json, path: mac_address}       # dotted path into the payload
+  tariff: {from: json, path: ElectricityTariff, map: {'0001': low, '0002': normal}}
+```
+
+`from: json` is how an identifier the device publishes — a gateway's mac address, a meter id —
+becomes a label without being written into a config file. A capture group used inside a
+`{capture}` template stops emitting a label of its own.
+
+A path that is not present in the payload, and a value outside `map`, skip the whole sample: an
+absent label would silently change which series the reading belongs to. A payload that is not JSON,
+and a value that is an object or an array, are errors.
 
 ### Values
 
