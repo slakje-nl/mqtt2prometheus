@@ -148,8 +148,13 @@ The image runs `run` by default. Every other subcommand is there to be reached w
 and none of them take a config path — the configuration directory comes from the
 `MQTT2PROMETHEUS_CONFIG_DIR` environment variable, which the image already sets to `/config`.
 
+There is no `--log-level` flag either. The log level is `log.level` in the config, and the example
+config reads it from `MQTT2PROMETHEUS_LOG_LEVEL`, so one variable sets it for every subcommand.
+Logs are JSON on stderr. Leaving the variable unset stops the process naming it, the same way an
+unset `MQTT_BROKER` does.
+
 ```
-mqtt2prometheus run [--log-level LEVEL]   subscribe and serve /metrics
+mqtt2prometheus run                       subscribe and serve /metrics
 mqtt2prometheus verify                    check the configuration and exit
 mqtt2prometheus healthcheck               probe the local health endpoint and exit
 mqtt2prometheus version                   print the version and exit

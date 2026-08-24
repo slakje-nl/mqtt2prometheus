@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"runtime"
@@ -135,12 +136,8 @@ func (a *App) ready() bool {
 }
 
 func (a *App) load() (*config.Config, []*source, error) {
-	cfg, err := config.Load(a.dir)
+	cfg, err := loadConfig(a.dir)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := cfg.Validate(); err != nil {
 		return nil, nil, err
 	}
 
@@ -150,7 +147,11 @@ func (a *App) load() (*config.Config, []*source, error) {
 }
 
 func NewLogger(level string) *slog.Logger {
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: parseLevel(level)}))
+	return newLogger(os.Stderr, level)
+}
+
+func newLogger(w io.Writer, level string) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: parseLevel(level)}))
 }
 
 func parseLevel(level string) slog.Level {

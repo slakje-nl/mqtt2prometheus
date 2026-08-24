@@ -161,7 +161,9 @@ it is protecting. Anything they turn up that is not listed above as expected is 
 - **Counter reset detection**: a counter receiving an absolute value lower than the previous one
   is treated as a source restart. An offset is carried so `rate()` and `increase()` stay correct
   across a broker or device restart.
-- **`log/slog`** with a JSON handler, always. There is no console format and no log format knob.
+- **`log/slog`** with a JSON handler on stderr, always. There is no console format and no log
+  format knob. The level is `log.level`, supplied by `${MQTT2PROMETHEUS_LOG_LEVEL}`, and there is
+  no `--log-level` flag: one variable sets the level for every subcommand.
   Never log a message payload at `info`: on a busy `$SYS` subscription that is constant disk
   churn, and payloads carry the user's home telemetry.
 - **Config is YAML**, one file for the process and one file per source, with `${ENV_VAR}`

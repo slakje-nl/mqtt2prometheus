@@ -15,10 +15,13 @@ build:
     CGO_ENABLED=0 go build -trimpath -o bin/mqtt2prometheus ./cmd/mqtt2prometheus
 
 run *args: build
-    MQTT2PROMETHEUS_CONFIG_DIR=config ./bin/mqtt2prometheus run {{ args }}
+    MQTT2PROMETHEUS_CONFIG_DIR=config \
+    MQTT2PROMETHEUS_LOG_LEVEL="${MQTT2PROMETHEUS_LOG_LEVEL:-info}" \
+    ./bin/mqtt2prometheus run {{ args }}
 
 verify: build
     MQTT2PROMETHEUS_CONFIG_DIR=config \
+    MQTT2PROMETHEUS_LOG_LEVEL="${MQTT2PROMETHEUS_LOG_LEVEL:-warn}" \
     MQTT_BROKER="${MQTT_BROKER:-tcp://mqtt.example:1883}" \
     MQTT_USERNAME="${MQTT_USERNAME:-verify}" \
     MQTT_PASSWORD="${MQTT_PASSWORD:-verify}" \
