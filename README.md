@@ -166,6 +166,7 @@ is replaced. Turn it on to debug, turn it back off.
 
 ```
 mqtt2prometheus run                       subscribe and serve /metrics
+mqtt2prometheus discover [PREFIX]         print the topic prefixes being published
 mqtt2prometheus verify                    check the configuration and exit
 mqtt2prometheus healthcheck               probe the local health endpoint and exit
 mqtt2prometheus version                   print the version and exit
@@ -174,6 +175,31 @@ mqtt2prometheus version                   print the version and exit
 ```
 docker exec mqtt2prometheus mqtt2prometheus verify
 ```
+
+### Finding out what is publishing
+
+Before you can write a rule you need to know the topic. `discover` prints each prefix once, the
+moment it first appears, and nothing else:
+
+```
+$ docker exec mqtt2prometheus mqtt2prometheus discover
+dsmr/reading
+zigbee2mqtt
+$SYS/broker
+```
+
+Only prefixes go to stdout, so `discover > topics.txt` gives you a clean list. Progress goes to
+stderr: `waiting for messages` when it starts, `closing` when it stops, and nothing in between
+unless the broker misbehaves.
+
+Pass a prefix to narrow it — `discover dsmr` subscribes to `dsmr/#` — and `--depth` to change how
+many segments make a prefix (two by default). `--for` takes a duration (`--for 5m`) and `--count`
+stops after that many prefixes; `--for 0` and `--count 0` mean no limit. Ctrl-C always stops
+cleanly.
+
+Retained messages arrive the moment it subscribes, so a device that only publishes hourly still
+shows up in the first few seconds. It connects with its own client id, so running it never
+disturbs the exporter already connected to the same broker.
 
 ## Configuration
 

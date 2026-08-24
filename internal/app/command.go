@@ -7,16 +7,24 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
+	"github.com/slakje-nl/mqtt2prometheus/internal/broker"
 	"github.com/slakje-nl/mqtt2prometheus/internal/config"
 )
 
 const ConfigDirEnv = "MQTT2PROMETHEUS_CONFIG_DIR"
 
+const (
+	defaultWindow = 30 * time.Second
+	defaultDepth  = 2
+)
+
 const usageText = `mqtt2prometheus exports selected MQTT messages as Prometheus metrics.
 
 usage:
   mqtt2prometheus run
+  mqtt2prometheus discover [--for DURATION] [--count N] [--depth N] [PREFIX]
   mqtt2prometheus verify
   mqtt2prometheus healthcheck
   mqtt2prometheus version
@@ -61,13 +69,15 @@ func (c Command) dispatch(ctx context.Context, args []string) error {
 		return c.healthcheck(args[1:])
 	case "version":
 		return c.version(args[1:])
+	case "discover":
+		return c.discover(ctx, args[1:])
 	default:
 		return c.usage(fmt.Sprintf("unknown subcommand %q", args[0]))
 	}
 }
 
 func (c Command) run(ctx context.Context, args []string) error {
-	dir, err := c.settings(c.flagSet("run"), args)
+	dir, err := c.settings(c.flagSet("run"), args, 0)
 	if err != nil {
 		return err
 	}
@@ -81,7 +91,7 @@ func (c Command) run(ctx context.Context, args []string) error {
 }
 
 func (c Command) verify(args []string) error {
-	dir, err := c.settings(c.flagSet("verify"), args)
+	dir, err := c.settings(c.flagSet("verify"), args, 0)
 	if err != nil {
 		return err
 	}
@@ -90,7 +100,7 @@ func (c Command) verify(args []string) error {
 }
 
 func (c Command) healthcheck(args []string) error {
-	dir, err := c.settings(c.flagSet("healthcheck"), args)
+	dir, err := c.settings(c.flagSet("healthcheck"), args, 0)
 	if err != nil {
 		return err
 	}
@@ -100,11 +110,90 @@ func (c Command) healthcheck(args []string) error {
 
 func (c Command) version(args []string) error {
 	flags := c.flagSet("version")
-	if err := parse(flags, args); err != nil {
+	if err := parse(flags, args, 0); err != nil {
 		return err
 	}
 
 	_, err := fmt.Fprintf(c.Out, "mqtt2prometheus %s (%s)\n", c.Build.Version, c.Build.Commit)
+
+	return err
+}
+
+func (c Command) discover(ctx context.Context, args []string) error {
+	flags := c.flagSet("discover")
+	window := flags.Duration("for", defaultWindow, "how long to listen; 0 listens until interrupted")
+	count := flags.Int("count", 0, "stop after this many prefixes; 0 keeps listening")
+	depth := flags.Int("depth", defaultDepth, "how many topic segments make a prefix")
+
+	if err := parse(flags, args, 1); err != nil {
+		return err
+	}
+
+	if *depth < 1 {
+		return &UsageError{Message: "discover: --depth must be at least 1"}
+	}
+
+	if *count < 0 {
+		return &UsageError{Message: "discover: --count cannot be negative"}
+	}
+
+	cfg, err := c.configuration()
+	if err != nil {
+		return err
+	}
+
+	return c.follow(ctx, cfg, "-discover", topicFilter(flags.Arg(0)), *window,
+		newDiscovery(*depth, *count))
+}
+
+func (c Command) configuration() (*config.Config, error) {
+	dir, err := configDir()
+	if err != nil {
+		return nil, err
+	}
+
+	return loadConfig(dir)
+}
+
+func (c Command) follow(ctx context.Context, cfg *config.Config, suffix, filter string,
+	window time.Duration, target collector) error {
+	if _, err := fmt.Fprintln(c.ErrOut, "waiting for messages"); err != nil {
+		return err
+	}
+
+	listening, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	errs := make(chan error, 1)
+
+	go func() {
+		errs <- listen(listening, cfg, suffix,
+			broker.Subscription{Filter: filter, QoS: *cfg.MQTT.QoS},
+			window, newLogger(c.ErrOut, cfg.Log.Level), target.observe)
+
+		target.close()
+	}()
+
+	go func() {
+		select {
+		case <-target.done():
+			cancel()
+		case <-listening.Done():
+		}
+	}()
+
+	writeErr := drainLines(c.Out, target.lines())
+	cancel()
+
+	if listenErr := <-errs; listenErr != nil {
+		return listenErr
+	}
+
+	return errors.Join(writeErr, closingNotice(c.ErrOut))
+}
+
+func closingNotice(w io.Writer) error {
+	_, err := fmt.Fprintln(w, "closing")
 
 	return err
 }
@@ -116,8 +205,8 @@ func (c Command) flagSet(name string) *flag.FlagSet {
 	return flags
 }
 
-func (c Command) settings(flags *flag.FlagSet, args []string) (string, error) {
-	if err := parse(flags, args); err != nil {
+func (c Command) settings(flags *flag.FlagSet, args []string, maxArgs int) (string, error) {
+	if err := parse(flags, args, maxArgs); err != nil {
 		return "", err
 	}
 
@@ -132,13 +221,13 @@ func (c Command) usage(message string) error {
 	return &UsageError{Message: message}
 }
 
-func parse(flags *flag.FlagSet, args []string) error {
+func parse(flags *flag.FlagSet, args []string, maxArgs int) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 
-	if flags.NArg() > 0 {
-		return &UsageError{Message: fmt.Sprintf("%s: unexpected argument %q", flags.Name(), flags.Arg(0))}
+	if flags.NArg() > maxArgs {
+		return &UsageError{Message: fmt.Sprintf("%s: unexpected argument %q", flags.Name(), flags.Arg(maxArgs))}
 	}
 
 	return nil
