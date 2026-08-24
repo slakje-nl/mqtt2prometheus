@@ -8,7 +8,7 @@ gitleaks := "go run github.com/zricethezav/gitleaks/v8@latest"
 default:
     @just --list --unsorted
 
-check: format test security
+check: format test security compose-check
 
 build:
     mkdir -p bin
@@ -50,6 +50,13 @@ security:
     {{ govulncheck }} ./...
     {{ gosec }} -quiet ./...
     {{ gitleaks }} dir . --no-banner
+
+compose-check:
+    MQTT2PROMETHEUS_LOG_LEVEL="${MQTT2PROMETHEUS_LOG_LEVEL:-warn}" \
+    MQTT_BROKER="${MQTT_BROKER:-tcp://mqtt.example:1883}" \
+    MQTT_USERNAME="${MQTT_USERNAME:-example}" \
+    MQTT_PASSWORD="${MQTT_PASSWORD:-example}" \
+    docker compose config -q
 
 docker-build:
     docker build -t mqtt2prometheus:local .
