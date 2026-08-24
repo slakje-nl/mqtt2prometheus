@@ -69,7 +69,7 @@ func TestExecute_CapturePrintsOneLinePerMessage(t *testing.T) {
 
 	t.Setenv(ConfigDirEnv, writeConfigDir(t, brokerURL, ":0", map[string]string{"zwave.yaml": zwaveSource}))
 
-	out, errOut := captureWhilePublishing(t, []string{"capture", "--for", "0", "dsmr/#"},
+	out, errOut := captureWhilePublishing(t, []string{"capture", "-for", "0", "dsmr/#"},
 		func() {
 			publish("dsmr/reading/power_delivered", "0.412")
 			publish("dsmr/consumption", `{"power":412,"tariff":"0002"}`)
@@ -97,7 +97,7 @@ func TestExecute_CaptureIgnoresRetainedMessages(t *testing.T) {
 
 	t.Setenv(ConfigDirEnv, writeConfigDir(t, brokerURL, ":0", map[string]string{"zwave.yaml": zwaveSource}))
 
-	out, _ := captureWhilePublishing(t, []string{"capture", "--for", "0", "dsmr/#"},
+	out, _ := captureWhilePublishing(t, []string{"capture", "-for", "0", "dsmr/#"},
 		func() { publish("dsmr/fresh", "published while watching") },
 		func(seen string) bool { return strings.Contains(seen, "dsmr/fresh") })
 
@@ -112,7 +112,7 @@ func TestExecute_CaptureStopsAtTheMessageCount(t *testing.T) {
 	t.Setenv(ConfigDirEnv, writeConfigDir(t, brokerURL, ":0", map[string]string{"zwave.yaml": zwaveSource}))
 
 	out, errOut := captureWhilePublishing(t,
-		[]string{"capture", "--for", "0", "--count", "1", "dsmr/#"},
+		[]string{"capture", "-for", "0", "-count", "1", "dsmr/#"},
 		func() { publish("dsmr/a", "1") },
 		func(seen string) bool { return strings.Count(seen, "\n") == 1 })
 
@@ -127,7 +127,7 @@ func TestExecute_CaptureWritesNothingWhenNobodyPublishes(t *testing.T) {
 	var out, errOut bytes.Buffer
 
 	err := testCommand(&out, &errOut).Execute(t.Context(),
-		[]string{"capture", "--for", "500ms", "dsmr/#"})
+		[]string{"capture", "-for", "500ms", "dsmr/#"})
 
 	require.NoError(t, err)
 	require.Empty(t, out.String())
@@ -143,11 +143,11 @@ func TestExecute_CaptureRejectsBadArguments(t *testing.T) {
 	require.ErrorAs(t, err, &usage)
 	require.ErrorContains(t, err, "a topic filter is required")
 
-	err = command.Execute(t.Context(), []string{"capture", "--count", "-1", "dsmr/#"})
+	err = command.Execute(t.Context(), []string{"capture", "-count", "-1", "dsmr/#"})
 	require.ErrorAs(t, err, &usage)
-	require.ErrorContains(t, err, "--count cannot be negative")
+	require.ErrorContains(t, err, "-count cannot be negative")
 
-	err = command.Execute(t.Context(), []string{"capture", "--nope"})
+	err = command.Execute(t.Context(), []string{"capture", "-nope"})
 	require.ErrorContains(t, err, "not defined")
 
 	t.Setenv(ConfigDirEnv, "")
@@ -160,7 +160,7 @@ func TestExecute_CaptureReportsAnUnusableBrokerURL(t *testing.T) {
 
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"capture", "--for", "1s", "dsmr/#"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"capture", "-for", "1s", "dsmr/#"})
 
 	require.ErrorContains(t, err, "broker url")
 }
