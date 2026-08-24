@@ -8,7 +8,7 @@ services:
     volumes:
       - /mnt/user/appdata/mqtt2prometheus:/config:ro
     environment:
-      MQTT2PROMETHEUS_LOG_LEVEL: ${MQTT2PROMETHEUS_LOG_LEVEL:?warn, or info to log every payload}
+      MQTT2PROMETHEUS_LOG_LEVEL: ${MQTT2PROMETHEUS_LOG_LEVEL:-warn}
       MQTT_BROKER: ${MQTT_BROKER:?e.g. tcp://192.0.2.10:1883}
       MQTT_USERNAME: ${MQTT_USERNAME:?}
       MQTT_PASSWORD: ${MQTT_PASSWORD:?}

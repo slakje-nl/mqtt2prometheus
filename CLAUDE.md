@@ -111,8 +111,8 @@ label as published the moment it is written.
   what a device actually delivered is the only way to debug a rule that is not firing, so the
   per-message log line carries the payload. The cost is real: at `info` the user's home telemetry
   goes into `docker logs` and stays there for the container's lifetime, readable by anything that
-  can reach the Docker socket. `.env.example` ships `MQTT2PROMETHEUS_LOG_LEVEL=warn`, so a running
-  exporter logs no payloads; turn `info` on to debug and turn it back off.
+  can reach the Docker socket. `compose.yaml` defaults `MQTT2PROMETHEUS_LOG_LEVEL` to `warn`, so a
+  running exporter logs no payloads; turn `info` on to debug and turn it back off.
 - **Never echo an environment variable in a CI step.** No `run: echo $MQTT_PASSWORD`, no `set -x`
   in a step that touches secrets, no `docker build --build-arg` carrying a credential (build args
   are visible in image history).
