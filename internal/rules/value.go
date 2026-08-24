@@ -82,12 +82,16 @@ func (e extractor) raw(payload []byte) (any, bool, error) {
 		return string(payload), true, nil
 	}
 
+	return walkJSON(payload, e.path)
+}
+
+func walkJSON(payload []byte, path []string) (any, bool, error) {
 	var document any
 	if err := json.Unmarshal(payload, &document); err != nil {
 		return nil, false, fmt.Errorf("%w: %w", ErrBadJSON, err)
 	}
 
-	for _, segment := range e.path {
+	for _, segment := range path {
 		object, isObject := document.(map[string]any)
 		if !isObject {
 			return nil, false, nil

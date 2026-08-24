@@ -20,7 +20,7 @@ type source struct {
 	qos               uint8
 	brokerURL         string
 	lastUpdatedMetric string
-	labels            map[string]string
+	labels            rules.Labels
 	rules             []*rules.Rule
 	prefix            string
 }
@@ -35,7 +35,7 @@ func compileSources(cfg *config.Config) ([]*source, error) {
 			qos:               declared.EffectiveQoS(*cfg.MQTT.QoS),
 			brokerURL:         declared.EffectiveBroker(cfg.MQTT.Broker),
 			lastUpdatedMetric: declared.LastUpdatedMetric,
-			labels:            declared.Labels,
+			labels:            rules.CompileLabels(declared.Labels),
 			prefix:            topicPrefix(declared.Subscribe),
 		}
 
@@ -100,7 +100,14 @@ func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) 
 	}
 
 	if matched && s.lastUpdatedMetric != "" {
-		samples.Set(s.lastUpdatedMetric, store.Gauge, heartbeatHelp, s.labels, float64(now.UnixNano())/1e9)
+		labels, present, err := s.labels.Resolve(nil, msg.Payload)
+
+		switch {
+		case err != nil:
+			problems = append(problems, err)
+		case present:
+			samples.Set(s.lastUpdatedMetric, store.Gauge, heartbeatHelp, labels, float64(now.UnixNano())/1e9)
+		}
 	}
 
 	return problems, matched

@@ -15,7 +15,7 @@ type Rule struct {
 
 	match      *regexp.Regexp
 	captures   []string
-	labels     map[string]string
+	labels     Labels
 	autoLabels []string
 	value      extractor
 }
@@ -36,13 +36,13 @@ func Compile(src config.Source, rule config.Rule) (*Rule, error) {
 		return nil, err
 	}
 
-	labels := map[string]string{}
-	for name, template := range src.Labels {
-		labels[name] = template
+	declared := map[string]config.Label{}
+	for name, label := range src.Labels {
+		declared[name] = label
 	}
 
-	for name, template := range rule.Labels {
-		labels[name] = template
+	for name, label := range rule.Labels {
+		declared[name] = label
 	}
 
 	captures := config.CaptureNames(match)
@@ -54,8 +54,8 @@ func Compile(src config.Source, rule config.Rule) (*Rule, error) {
 		LastUpdatedMetric: rule.LastUpdatedMetric,
 		match:             match,
 		captures:          captures,
-		labels:            labels,
-		autoLabels:        config.LabelNames(captures, labels),
+		labels:            CompileLabels(declared),
+		autoLabels:        config.LabelNames(captures, declared),
 		value:             value,
 	}, nil
 }
@@ -83,23 +83,42 @@ func (r *Rule) Apply(topic string, payload []byte) (Match, bool, error) {
 		return Match{}, true, nil
 	}
 
-	return Match{Labels: r.resolveLabels(captured), Value: value.number}, true, nil
+	labels, present, err := r.resolveLabels(captured, payload)
+	if err != nil {
+		return Match{}, true, err
+	}
+
+	if !present {
+		return Match{}, true, nil
+	}
+
+	return Match{Labels: labels, Value: value.number}, true, nil
 }
 
-func (r *Rule) resolveLabels(captured map[string]string) map[string]string {
+func (r *Rule) resolveLabels(captured map[string]string, payload []byte) (map[string]string, bool, error) {
 	labels := make(map[string]string, len(r.autoLabels))
 
 	for _, name := range r.autoLabels {
-		if template, declared := r.labels[name]; declared {
-			labels[name] = config.ExpandTemplate(template, captured)
+		extractor, declared := r.labels.extractors[name]
+		if !declared {
+			labels[name] = captured[name]
 
 			continue
 		}
 
-		labels[name] = captured[name]
+		value, present, err := extractor.resolve(captured, payload)
+		if err != nil {
+			return nil, false, fmt.Errorf("label %q: %w", name, err)
+		}
+
+		if !present {
+			return nil, false, nil
+		}
+
+		labels[name] = value
 	}
 
-	return labels
+	return labels, true, nil
 }
 
 func (r *Rule) LabelNames() []string {

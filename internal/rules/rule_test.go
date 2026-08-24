@@ -78,7 +78,7 @@ func TestApply_LabelTemplateConsumesItsCapture(t *testing.T) {
 		MetricName: "zwave_meter",
 		Type:       config.TypeGauge,
 		Value:      config.Value{From: config.FromRaw},
-		Labels:     map[string]string{"endpoint": "endpoint_{ep}"},
+		Labels:     map[string]config.Label{"endpoint": {From: config.FromStatic, Value: "endpoint_{ep}"}},
 	})
 
 	match, matched, err := rule.Apply("zwave/example_outlet/meter/endpoint_2", []byte("7"))
@@ -95,9 +95,12 @@ func TestApply_SourceLabelsAreMergedAndOverriddenByRuleLabels(t *testing.T) {
 			MetricName: "m",
 			Type:       config.TypeGauge,
 			Value:      config.Value{From: config.FromRaw},
-			Labels:     map[string]string{"scope": "rule"},
+			Labels:     map[string]config.Label{"scope": {From: config.FromStatic, Value: "rule"}},
 		},
-		config.Source{Labels: map[string]string{"instance": "home", "scope": "source"}},
+		config.Source{Labels: map[string]config.Label{
+			"instance": {From: config.FromStatic, Value: "home"},
+			"scope":    {From: config.FromStatic, Value: "source"},
+		}},
 	)
 
 	match, _, err := rule.Apply("t", []byte("1"))

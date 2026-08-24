@@ -112,6 +112,67 @@ func TestApply_WritesMetricAndBothHeartbeats(t *testing.T) {
 	require.Equal(t, []string{"node"}, snapshot[2].Key.LabelNames)
 }
 
+func TestApply_StampsTheHeartbeatWithPayloadLabels(t *testing.T) {
+	cfg := zwaveConfig()
+	cfg.SourceList[0].Labels = map[string]config.Label{
+		"mac_address": {From: config.FromJSON, Path: "mac_address"},
+	}
+
+	sources, err := compileSources(cfg)
+	require.NoError(t, err)
+
+	samples := store.New()
+	problems, _ := sources[0].apply(samples, fixedTime, broker.Message{
+		Topic:   "zwave/example_sensor/lastActive",
+		Payload: []byte(`{"mac_address":"00_00_00_00_00_00","value":1711922310552}`),
+	})
+
+	require.Empty(t, problems)
+
+	heartbeat := samples.Snapshot()[0]
+	require.Equal(t, "zwave_last_update", heartbeat.Key.Name)
+	require.Equal(t, []string{"mac_address"}, heartbeat.Key.LabelNames)
+	require.Equal(t, []string{"00_00_00_00_00_00"}, heartbeat.Key.LabelValues)
+}
+
+func TestApply_WritesNothingWhenASourceLabelIsMissing(t *testing.T) {
+	cfg := zwaveConfig()
+	cfg.SourceList[0].Labels = map[string]config.Label{
+		"mac_address": {From: config.FromJSON, Path: "mac_address"},
+	}
+
+	sources, err := compileSources(cfg)
+	require.NoError(t, err)
+
+	samples := store.New()
+	problems, matched := sources[0].apply(samples, fixedTime, broker.Message{
+		Topic: "zwave/example_sensor/lastActive", Payload: []byte(`{"value":1711922310552}`),
+	})
+
+	require.Empty(t, problems)
+	require.True(t, matched)
+	require.Zero(t, samples.Len())
+}
+
+func TestApply_ReportsAHeartbeatLabelThatIsNotAScalar(t *testing.T) {
+	cfg := zwaveConfig()
+	cfg.SourceList[0].Labels = map[string]config.Label{
+		"gateway": {From: config.FromJSON, Path: "gateway"},
+	}
+
+	sources, err := compileSources(cfg)
+	require.NoError(t, err)
+
+	problems, _ := sources[0].apply(store.New(), fixedTime, broker.Message{
+		Topic:   "zwave/example_sensor/lastActive",
+		Payload: []byte(`{"gateway":{"model":"x"},"value":1711922310552}`),
+	})
+
+	require.Len(t, problems, 2)
+	require.ErrorIs(t, problems[0], rules.ErrNotALabel)
+	require.ErrorIs(t, problems[1], rules.ErrNotALabel)
+}
+
 func TestApply_UnmatchedTopicWritesNothing(t *testing.T) {
 	sources, err := compileSources(zwaveConfig())
 	require.NoError(t, err)
