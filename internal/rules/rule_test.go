@@ -32,7 +32,7 @@ func TestApply_ExtractsCapturesAsLabels(t *testing.T) {
 
 	match, matched, err := rule.Apply(
 		"zwave/example_outlet/meter/endpoint_1/value/66049",
-		[]byte(`{"time":1735906853203,"value":3.395}`),
+		NewPayload([]byte(`{"time":1735906853203,"value":3.395}`)),
 	)
 
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestApply_TopicWithASpace(t *testing.T) {
 		Value:      config.Value{From: config.FromJSON, Path: "power"},
 	})
 
-	match, matched, err := rule.Apply("zigbee2mqtt/example device", []byte(`{"power":102}`))
+	match, matched, err := rule.Apply("zigbee2mqtt/example device", NewPayload([]byte(`{"power":102}`)))
 
 	require.NoError(t, err)
 	require.True(t, matched)
@@ -66,7 +66,7 @@ func TestApply_NonMatchingTopic(t *testing.T) {
 		Value:      config.Value{From: config.FromJSON, Path: "value"},
 	})
 
-	_, matched, err := rule.Apply("zwave/example_sensor/somethingElse", []byte(`{"value":1}`))
+	_, matched, err := rule.Apply("zwave/example_sensor/somethingElse", NewPayload([]byte(`{"value":1}`)))
 
 	require.NoError(t, err)
 	require.False(t, matched)
@@ -81,7 +81,7 @@ func TestApply_LabelTemplateConsumesItsCapture(t *testing.T) {
 		Labels:     map[string]config.Label{"endpoint": {From: config.FromStatic, Value: "endpoint_{ep}"}},
 	})
 
-	match, matched, err := rule.Apply("zwave/example_outlet/meter/endpoint_2", []byte("7"))
+	match, matched, err := rule.Apply("zwave/example_outlet/meter/endpoint_2", NewPayload([]byte("7")))
 
 	require.NoError(t, err)
 	require.True(t, matched)
@@ -103,7 +103,7 @@ func TestApply_SourceLabelsAreMergedAndOverriddenByRuleLabels(t *testing.T) {
 		}},
 	)
 
-	match, _, err := rule.Apply("t", []byte("1"))
+	match, _, err := rule.Apply("t", NewPayload([]byte("1")))
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"instance": "home", "scope": "rule"}, match.Labels)
@@ -117,7 +117,7 @@ func TestApply_MissingFieldSkipsWithoutError(t *testing.T) {
 		Value:      config.Value{From: config.FromJSON, Path: "energy"},
 	})
 
-	match, matched, err := rule.Apply("zigbee2mqtt/example device", []byte(`{"current":22222.0}`))
+	match, matched, err := rule.Apply("zigbee2mqtt/example device", NewPayload([]byte(`{"current":22222.0}`)))
 
 	require.NoError(t, err)
 	require.True(t, matched)
@@ -132,7 +132,7 @@ func TestApply_PayloadErrorIsReportedAsMatched(t *testing.T) {
 		Value:      config.Value{From: config.FromJSON, Path: "value"},
 	})
 
-	_, matched, err := rule.Apply("t", []byte("not json"))
+	_, matched, err := rule.Apply("t", NewPayload([]byte("not json")))
 
 	require.True(t, matched)
 	require.ErrorIs(t, err, ErrBadJSON)

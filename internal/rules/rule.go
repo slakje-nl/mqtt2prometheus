@@ -60,7 +60,7 @@ func Compile(src config.Source, rule config.Rule) (*Rule, error) {
 	}, nil
 }
 
-func (r *Rule) Apply(topic string, payload []byte) (Match, bool, error) {
+func (r *Rule) Apply(topic string, payload *Payload) (Match, bool, error) {
 	found := r.match.FindStringSubmatch(topic)
 	if found == nil {
 		return Match{}, false, nil
@@ -95,7 +95,7 @@ func (r *Rule) Apply(topic string, payload []byte) (Match, bool, error) {
 	return Match{Labels: labels, Value: value.number}, true, nil
 }
 
-func (r *Rule) resolveLabels(captured map[string]string, payload []byte) (map[string]string, bool, error) {
+func (r *Rule) resolveLabels(captured map[string]string, payload *Payload) (map[string]string, bool, error) {
 	labels := make(map[string]string, len(r.autoLabels))
 
 	for _, name := range r.autoLabels {

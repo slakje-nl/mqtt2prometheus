@@ -164,6 +164,11 @@ it is protecting. Anything they turn up that is not listed above as expected is 
   still differ (`mosquitto` needs QoS 2).
 - **One processing goroutine per source**, each with its own buffered channel, fed by a router
   that dispatches on topic. Isolation where it matters, without the connection overhead.
+- **A message is unmarshalled once.** `internal/app` wraps the payload in a `rules.Payload` and
+  hands the same one to every rule and to the source heartbeat; parsing is lazy, so a source whose
+  rules are all `from: raw` never parses at all. Rules take a `*rules.Payload`, never raw bytes —
+  with one JSON topic feeding 21 rules that each read a value and three labels, per-extraction
+  parsing meant 86 unmarshals of the same message.
 - **A custom `prometheus.Collector` over a sample store, never `promauto` or `GaugeVec`.** Metric
   names come from config and are not known at compile time, and counters need reset detection.
   The store is keyed by name plus label fingerprint; `Collect` walks a snapshot.
