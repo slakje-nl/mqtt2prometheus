@@ -279,7 +279,11 @@ One file per source, in `sources/`. Sources pointing at the same broker share on
 | `last_updated_metric` | no | Gauge set to the current time, carrying this rule's labels |
 | `labels` | no | Extra labels, static or taken from the payload |
 
-Every rule that matches a topic runs, so one message can produce several metrics.
+Every rule that matches a topic runs, so one message can produce several metrics. Several rules may
+share a `metric_name` — that is how `phase` or `tariff` becomes a label — as long as they agree on
+label names, `help` and `type`. `verify` refuses anything else, including a `last_updated_metric`
+that collides with a metric, because Prometheus rejects a scrape whose metric family disagrees with
+itself.
 
 ### Labels
 

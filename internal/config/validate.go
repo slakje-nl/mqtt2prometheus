@@ -19,7 +19,7 @@ func (c *Config) Validate() error {
 	p = c.validateProcess(p)
 
 	seenSource := map[string]string{}
-	metricLabels := map[string]string{}
+	shapes := map[string]metricShape{}
 
 	for _, src := range c.SourceList {
 		p = src.validate(p)
@@ -30,7 +30,7 @@ func (c *Config) Validate() error {
 			seenSource[src.Name] = src.Path
 		}
 
-		p = src.validateMetricConsistency(p, metricLabels)
+		p = src.validateMetricConsistency(p, shapes)
 	}
 
 	if len(p) > 0 {
@@ -263,7 +263,7 @@ func (v Value) validate(p Problems, where string) Problems {
 	return p
 }
 
-func (s Source) validateMetricConsistency(p Problems, metricLabels map[string]string) Problems {
+func (s Source) validateMetricConsistency(p Problems, seen map[string]metricShape) Problems {
 	for i, rule := range s.Rules {
 		if rule.MetricName == "" || rule.Match == "" {
 			continue
@@ -274,18 +274,62 @@ func (s Source) validateMetricConsistency(p Problems, metricLabels map[string]st
 			continue
 		}
 
-		names := strings.Join(LabelNames(CaptureNames(re), rule.Labels, s.Labels), " ")
+		labels := strings.Join(LabelNames(CaptureNames(re), rule.Labels, s.Labels), " ")
 		where := fmt.Sprintf("%s: rule %d", s.Path, i)
 
-		if seen, ok := metricLabels[rule.MetricName]; ok && seen != names {
-			p = append(p, fmt.Sprintf(
-				"%s: metric_name %q is already used with labels [%s], this rule uses [%s]",
-				where, rule.MetricName, seen, names))
+		p = record(p, seen, where, rule.MetricName,
+			metricShape{labels: labels, help: rule.Help, kind: rule.Type})
 
-			continue
+		if rule.LastUpdatedMetric != "" {
+			p = record(p, seen, where, rule.LastUpdatedMetric, heartbeatShape(labels))
 		}
+	}
 
-		metricLabels[rule.MetricName] = names
+	if s.LastUpdatedMetric != "" {
+		p = record(p, seen, s.Path, s.LastUpdatedMetric,
+			heartbeatShape(strings.Join(LabelNames(nil, s.Labels), " ")))
+	}
+
+	return p
+}
+
+func heartbeatShape(labels string) metricShape {
+	return metricShape{labels: labels, help: HeartbeatHelp, kind: TypeGauge}
+}
+
+func record(p Problems, seen map[string]metricShape, where, name string, shape metricShape) Problems {
+	first, known := seen[name]
+	if !known {
+		seen[name] = shape
+
+		return p
+	}
+
+	return append(p, first.differences(where, name, shape)...)
+}
+
+type metricShape struct {
+	labels string
+	help   string
+	kind   string
+}
+
+func (m metricShape) differences(where, name string, other metricShape) Problems {
+	var p Problems
+
+	if m.labels != other.labels {
+		p = append(p, fmt.Sprintf("%s: metric_name %q is already used with labels [%s], this rule uses [%s]",
+			where, name, m.labels, other.labels))
+	}
+
+	if m.help != other.help {
+		p = append(p, fmt.Sprintf("%s: metric_name %q is already used with help %q, this rule uses %q",
+			where, name, m.help, other.help))
+	}
+
+	if m.kind != other.kind {
+		p = append(p, fmt.Sprintf("%s: metric_name %q is already used as a %s, this rule makes it a %s",
+			where, name, m.kind, other.kind))
 	}
 
 	return p

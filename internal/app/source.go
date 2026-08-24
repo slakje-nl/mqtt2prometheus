@@ -12,8 +12,6 @@ import (
 	"github.com/slakje-nl/mqtt2prometheus/internal/store"
 )
 
-const heartbeatHelp = "Unix time of the last message this rule matched"
-
 type source struct {
 	name              string
 	subscribe         string
@@ -95,7 +93,7 @@ func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) 
 		samples.Set(rule.MetricName, kindOf(rule), rule.Help, result.Labels, result.Value)
 
 		if rule.LastUpdatedMetric != "" {
-			samples.Set(rule.LastUpdatedMetric, store.Gauge, heartbeatHelp, result.Labels, float64(now.UnixNano())/1e9)
+			samples.Set(rule.LastUpdatedMetric, store.Gauge, config.HeartbeatHelp, result.Labels, float64(now.UnixNano())/1e9)
 		}
 	}
 
@@ -106,7 +104,7 @@ func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) 
 		case err != nil:
 			problems = append(problems, err)
 		case present:
-			samples.Set(s.lastUpdatedMetric, store.Gauge, heartbeatHelp, labels, float64(now.UnixNano())/1e9)
+			samples.Set(s.lastUpdatedMetric, store.Gauge, config.HeartbeatHelp, labels, float64(now.UnixNano())/1e9)
 		}
 	}
 
