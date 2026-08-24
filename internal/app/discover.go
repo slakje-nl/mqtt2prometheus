@@ -58,6 +58,10 @@ func (d *discovery) done() <-chan struct{} {
 	return d.out.done()
 }
 
+func (d *discovery) skipRetained() bool {
+	return false
+}
+
 func prefixOf(topic string, depth int) string {
 	segments := strings.Split(topic, "/")
 	if len(segments) <= depth {

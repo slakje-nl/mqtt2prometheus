@@ -18,6 +18,8 @@ const (
 	sessionExpirySeconds  = 3600
 	disconnectGracePeriod = 5 * time.Second
 	maxGrantedQoS         = 2
+	sendRetained          = 0
+	withholdRetained      = 2
 )
 
 type subscriber interface {
@@ -138,10 +140,22 @@ func (p *Paho) onClientError(err error) {
 func subscribeOptions(subs []Subscription) []paho.SubscribeOptions {
 	options := make([]paho.SubscribeOptions, 0, len(subs))
 	for _, sub := range subs {
-		options = append(options, paho.SubscribeOptions{Topic: sub.Filter, QoS: sub.QoS})
+		options = append(options, paho.SubscribeOptions{
+			Topic:          sub.Filter,
+			QoS:            sub.QoS,
+			RetainHandling: retainHandling(sub.SkipRetained),
+		})
 	}
 
 	return options
+}
+
+func retainHandling(skip bool) byte {
+	if skip {
+		return withholdRetained
+	}
+
+	return sendRetained
 }
 
 func (p *Paho) reportSubscriptions(subs []Subscription, ack *paho.Suback) {

@@ -20,6 +20,7 @@ type collector interface {
 	close()
 	lines() <-chan string
 	done() <-chan struct{}
+	skipRetained() bool
 }
 
 type emitter struct {

@@ -10,8 +10,9 @@ type Message struct {
 }
 
 type Subscription struct {
-	Filter string
-	QoS    uint8
+	Filter       string
+	QoS          uint8
+	SkipRetained bool
 }
 
 type Handler func(Message)

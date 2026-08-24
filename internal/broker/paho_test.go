@@ -268,3 +268,15 @@ func TestRun_SubscribesThroughARealBroker(t *testing.T) {
 	cancel()
 	require.NoError(t, <-done)
 }
+
+func TestSubscribeOptions_WithholdsRetainedOnlyWhenAsked(t *testing.T) {
+	options := subscribeOptions([]Subscription{
+		{Filter: "live/#", QoS: 1, SkipRetained: true},
+		{Filter: "all/#", QoS: 2},
+	})
+
+	require.Len(t, options, 2)
+	require.Equal(t, byte(withholdRetained), options[0].RetainHandling)
+	require.Equal(t, "live/#", options[0].Topic)
+	require.Equal(t, byte(sendRetained), options[1].RetainHandling)
+}

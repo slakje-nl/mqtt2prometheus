@@ -167,6 +167,7 @@ is replaced. Turn it on to debug, turn it back off.
 ```
 mqtt2prometheus run                       subscribe and serve /metrics
 mqtt2prometheus discover [PREFIX]         print the topic prefixes being published
+mqtt2prometheus capture FILTER            print each message as topic and payload
 mqtt2prometheus verify                    check the configuration and exit
 mqtt2prometheus healthcheck               probe the local health endpoint and exit
 mqtt2prometheus version                   print the version and exit
@@ -200,6 +201,36 @@ cleanly.
 Retained messages arrive the moment it subscribes, so a device that only publishes hourly still
 shows up in the first few seconds. It connects with its own client id, so running it never
 disturbs the exporter already connected to the same broker.
+
+### Seeing what a topic actually sends
+
+Once `discover` has told you the prefix, `capture` prints the messages themselves — one line per
+message, topic and payload separated by a tab:
+
+```
+$ docker exec mqtt2prometheus mqtt2prometheus capture 'dsmr/#'
+dsmr/reading/electricity_currently_delivered	0.412
+dsmr/reading/gas_meter_reading	1234.567
+dsmr/consumption	{"power":413,"tariff":"0002","timestamp":"250824120000W"}
+```
+
+**Everything it prints was published while you were watching.** It asks the broker to withhold
+retained messages, so the output is live traffic rather than a snapshot of values that may be
+hours old — which also means `--count 5` is five real messages. The trade is that a device which
+only publishes on change may say nothing for a long time; `discover` still lists it, because
+`discover` deliberately keeps retained messages in order to map the tree.
+
+One line is always one message: a newline, carriage return or tab inside a payload is written as
+`\n`, `\r` or `\t`. Backslashes are left alone so JSON stays readable. That makes the output
+easy to slice:
+
+```
+mqtt2prometheus capture 'dsmr/#' | cut -f1 | sort -u      # just the topics
+mqtt2prometheus capture 'dsmr/#' | cut -f2                # just the payloads
+```
+
+`--for` and `--count` bound the run exactly as they do for `discover`, counting messages rather
+than prefixes.
 
 ## Configuration
 
