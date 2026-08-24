@@ -17,7 +17,7 @@ just                  # list recipes
 just check            # every gate: format, test, security
 just build            # compile to bin/mqtt2prometheus
 just run              # run against config/ (needs a reachable broker)
-just verify           # mqtt2prometheus --verify-config --config config/
+just verify           # mqtt2prometheus verify
 just format           # gofmt check + go vet + golangci-lint (read-only, same as CI)
 just lint             # apply gofmt + golangci-lint fixes
 just test             # unit tests + 100% coverage gate + feature tests (requires Docker)
@@ -67,7 +67,7 @@ and pushes `ghcr.io/slakje-nl/mqtt2prometheus:vN` and `:latest`. Rolling that ou
 user copies a config directory to their own server and restarts the container.
 
 `config/` in this repository is an **example** configuration with placeholder values. It is
-verified by `--verify-config` in CI, which is what stands between a bad rule and a broken
+verified by `verify` in CI, which is what stands between a bad rule and a broken
 exporter. It is not the user's live config and must never become it — see Security and Privacy.
 
 ---
@@ -94,14 +94,14 @@ label as published the moment it is written.
 - **Credentials of any kind**, including ones that look fake. Everything host- or
   credential-shaped is injected at runtime through `${ENV_VAR}` expansion and appears in no
   committed file: `${MQTT_BROKER}`, `${MQTT_USERNAME}`, `${MQTT_PASSWORD}`. Because every config
-  field is required, an unset variable fails `--verify-config` loudly rather than silently
+  field is required, an unset variable fails `verify` loudly rather than silently
   connecting somewhere unintended.
 
 ### Never leak at runtime or in CI
 
 - **Never log a config value that could carry a secret.** Log the config *shape* (source name,
   rule count, subscribe filter), never the resolved `mqtt.password`, and never a full broker URL
-  if it carries userinfo. Redact `mqtt.username` and `mqtt.password` in `--verify-config` output
+  if it carries userinfo. Redact `mqtt.username` and `mqtt.password` in `verify` output
   and in any startup summary.
 - **Never log message payloads at `info`.** They contain the user's home telemetry.
 - **Never echo an environment variable in a CI step.** No `run: echo $MQTT_PASSWORD`, no `set -x`
@@ -172,13 +172,13 @@ it is protecting. Anything they turn up that is not listed above as expected is 
 Package layout:
 
 ```
-cmd/mqtt2prometheus/   flags, signal handling, calls internal/app
+cmd/mqtt2prometheus/   signal handling only, calls internal/app
 internal/config/       schema, glob loading, env expansion, validation
 internal/rules/        compiled rule: regex match, label extraction, value extraction
 internal/store/        sample store, counter reset detection, snapshots
 internal/exporter/     prometheus.Collector over the store, self-metrics
 internal/broker/       Broker interface, autopaho implementation, topic router
-internal/app/          wiring, per-source goroutines, reload, HTTP server
+internal/app/          subcommands, wiring, per-source goroutines, reload, HTTP server
 tests/feature/         //go:build feature, real mosquitto via testcontainers-go
 testdata/              golden corpus: captured payloads and expected metrics
 config/                the user's real configuration, verified in CI
@@ -210,7 +210,7 @@ The approved set, each at its newest stable release:
 
 **Every field is required and validated. There are no defaults.** No `defaultXxx` constants, no
 `if cfg.X == 0 { cfg.X = ... }` fallbacks, no `CheckAndSetDefaults` helpers. An operator who
-omitted a value gets a loud failure from `--verify-config`, never behaviour the config file no
+omitted a value gets a loud failure from `verify`, never behaviour the config file no
 longer documents.
 
 The only optional fields are the ones that are genuinely a feature, not a knob:
@@ -228,9 +228,15 @@ Everything else — `mqtt.broker`, `mqtt.client_id`, `mqtt.username`, `mqtt.pass
 `metric_name`, `type`, `value.from` — is required.
 
 **Durations use `time.Duration` syntax** (`5s`, `1m`, `24h`), never an int field named
-`*_seconds`.
+`*_seconds`. Every duration flag is a `flag.Duration`, so `--for 5m` parses and `--for 300` does
+not.
 
-`--verify-config` must catch, at minimum: unparseable regex, a `metric_name` used twice with
+**The configuration directory comes from `MQTT2PROMETHEUS_CONFIG_DIR`, and only from there.** There is
+no `--config` flag: one way to point the process at its config means `docker exec` needs no
+arguments, and an unset variable fails loudly instead of silently falling back to a directory that
+happens to exist.
+
+`verify` must catch, at minimum: unparseable regex, a `metric_name` used twice with
 different label sets, a named capture that collides with a declared label, an unknown
 `value.from`, a `type` that is neither `gauge` nor `counter`, and a source whose `subscribe`
 filter cannot match its own rules' regexes.
@@ -358,7 +364,7 @@ refactor it — don't push it into a feature test. Feature tests aren't where co
 - **`main`** — protected, rebase-and-merge only. Every push runs `release.yml`, which computes the
   next integer tag from existing `v*` tags, tags the commit, and pushes
   `ghcr.io/slakje-nl/mqtt2prometheus:vN` and `:latest`.
-- CI on every PR: `format`, `test` (unit + coverage gate + feature), `security`, `verify-config`
+- CI on every PR: `format`, `test` (unit + coverage gate + feature), `security`, `verify`
   against `config/`, and a Docker build that is not pushed.
 - Dependabot weekly for `gomod`, `docker` and `github-actions`, grouped, with scoped commit
   prefixes.

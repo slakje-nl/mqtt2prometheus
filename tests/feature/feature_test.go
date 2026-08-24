@@ -108,8 +108,9 @@ func startExporter(t *testing.T, brokerURL, listen string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	cmd := exec.CommandContext(ctx, binary, "--config", config)
+	cmd := exec.CommandContext(ctx, binary, "run")
 	cmd.Env = append(os.Environ(),
+		"MQTT2PROMETHEUS_CONFIG_DIR="+config,
 		"MQTT_BROKER="+brokerURL,
 		"MQTT_USERNAME=feature",
 		"MQTT_PASSWORD=feature",

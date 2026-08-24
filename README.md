@@ -105,7 +105,7 @@ and `/readyz` (connected to the broker and at least one message seen).
 To check a config change before restarting anything:
 
 ```
-docker exec mqtt2prometheus /mqtt2prometheus --config /config --verify-config
+docker exec mqtt2prometheus mqtt2prometheus verify
 ```
 
 It prints what every source resolved to and exits non-zero on any problem. Credentials are
@@ -141,6 +141,23 @@ that finds nothing produces nothing rather than discarding the whole message.
 Every merge to `main` publishes `ghcr.io/slakje-nl/mqtt2prometheus:vN` and moves `:latest`. Pin
 `:vN` in the compose file if you want upgrades to be a deliberate act, and to have something exact
 to roll back to.
+
+## Commands
+
+The image runs `run` by default. Every other subcommand is there to be reached with `docker exec`,
+and none of them take a config path — the configuration directory comes from the
+`MQTT2PROMETHEUS_CONFIG_DIR` environment variable, which the image already sets to `/config`.
+
+```
+mqtt2prometheus run [--log-level LEVEL]   subscribe and serve /metrics
+mqtt2prometheus verify                    check the configuration and exit
+mqtt2prometheus healthcheck               probe the local health endpoint and exit
+mqtt2prometheus version                   print the version and exit
+```
+
+```
+docker exec mqtt2prometheus mqtt2prometheus verify
+```
 
 ## Configuration
 
@@ -227,7 +244,7 @@ just            list the recipes
 just check      everything below: format, test and security
 just format     gofmt, vet, golangci-lint
 just test       unit tests with a 100% coverage gate, then the feature tests
-just verify     --verify-config against config/
+just verify     verify config/ without connecting to a broker
 just security   govulncheck, gosec, gitleaks
 ```
 
