@@ -153,6 +153,17 @@ config reads it from `MQTT2PROMETHEUS_LOG_LEVEL`, so one variable sets it for ev
 Logs are JSON on stderr. Leaving the variable unset stops the process naming it, the same way an
 unset `MQTT_BROKER` does.
 
+| level | what you get |
+|---|---|
+| `error` | the broker refused a subscription, or the subscribe call failed |
+| `warn` | anything not working while it keeps going: connection attempts failing, a message dropped because a source fell behind |
+| `info` | one line per message — topic, source, payload, and whether a rule matched |
+| `debug` | why a rule that matched produced no value |
+
+`warn` is the setting to run with. **`info` logs every payload**, which is how you find out why a
+rule is not firing — and also means your device readings sit in `docker logs` until the container
+is replaced. Turn it on to debug, turn it back off.
+
 ```
 mqtt2prometheus run                       subscribe and serve /metrics
 mqtt2prometheus verify                    check the configuration and exit

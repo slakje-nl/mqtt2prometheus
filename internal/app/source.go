@@ -68,7 +68,7 @@ func (s *source) owns(topic string) bool {
 	return len(topic) >= len(s.prefix) && topic[:len(s.prefix)] == s.prefix
 }
 
-func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) []error {
+func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) ([]error, bool) {
 	var (
 		problems []error
 		matched  bool
@@ -103,7 +103,7 @@ func (s *source) apply(samples *store.Store, now time.Time, msg broker.Message) 
 		samples.Set(s.lastUpdatedMetric, store.Gauge, heartbeatHelp, s.labels, float64(now.UnixNano())/1e9)
 	}
 
-	return problems
+	return problems, matched
 }
 
 func kindOf(rule *rules.Rule) store.Kind {

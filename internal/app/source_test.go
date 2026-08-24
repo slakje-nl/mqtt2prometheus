@@ -95,7 +95,7 @@ func TestApply_WritesMetricAndBothHeartbeats(t *testing.T) {
 	require.NoError(t, err)
 
 	samples := store.New()
-	problems := sources[0].apply(samples, fixedTime, broker.Message{
+	problems, _ := sources[0].apply(samples, fixedTime, broker.Message{
 		Topic:   "zwave/example_sensor/lastActive",
 		Payload: []byte(`{"time":1711922310802,"value":1711922310552}`),
 	})
@@ -117,7 +117,7 @@ func TestApply_UnmatchedTopicWritesNothing(t *testing.T) {
 	require.NoError(t, err)
 
 	samples := store.New()
-	problems := sources[0].apply(samples, fixedTime, broker.Message{
+	problems, _ := sources[0].apply(samples, fixedTime, broker.Message{
 		Topic: "zwave/example_sensor/unknownThing", Payload: []byte(`{"value":1}`),
 	})
 
@@ -134,7 +134,7 @@ func TestApply_SkippedValueWritesNoHeartbeatForThatRule(t *testing.T) {
 	require.NoError(t, err)
 
 	samples := store.New()
-	sources[0].apply(samples, fixedTime, broker.Message{
+	_, _ = sources[0].apply(samples, fixedTime, broker.Message{
 		Topic: "zwave/example_sensor/lastActive", Payload: []byte(`{"other":1}`),
 	})
 
@@ -146,7 +146,7 @@ func TestApply_ReportsAPayloadProblem(t *testing.T) {
 	sources, err := compileSources(zwaveConfig())
 	require.NoError(t, err)
 
-	problems := sources[0].apply(store.New(), fixedTime, broker.Message{
+	problems, _ := sources[0].apply(store.New(), fixedTime, broker.Message{
 		Topic: "zwave/example_sensor/lastActive", Payload: []byte("not json"),
 	})
 
@@ -163,7 +163,7 @@ func TestApply_CounterKind(t *testing.T) {
 	require.NoError(t, err)
 
 	samples := store.New()
-	sources[0].apply(samples, fixedTime, broker.Message{
+	_, _ = sources[0].apply(samples, fixedTime, broker.Message{
 		Topic: "zwave/example_sensor/lastActive", Payload: []byte(`{"value":5}`),
 	})
 
@@ -178,7 +178,7 @@ func TestApply_SourceWithoutHeartbeat(t *testing.T) {
 	require.NoError(t, err)
 
 	samples := store.New()
-	sources[0].apply(samples, fixedTime, broker.Message{
+	_, _ = sources[0].apply(samples, fixedTime, broker.Message{
 		Topic: "zwave/example_sensor/lastActive", Payload: []byte(`{"value":1000}`),
 	})
 
