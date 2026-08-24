@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -22,14 +21,12 @@ const (
 	defaultDepth  = 1
 )
 
-var shortFlagName = regexp.MustCompile(`([ :])-([A-Za-z])`)
-
 const usageText = `mqtt2prometheus exports selected MQTT messages as Prometheus metrics.
 
 usage:
   mqtt2prometheus run
-  mqtt2prometheus discover [--for DURATION] [--count N] [--depth N] [PREFIX]
-  mqtt2prometheus capture [--for DURATION] [--count N] FILTER
+  mqtt2prometheus discover [-for DURATION] [-count N] [-depth N] [PREFIX]
+  mqtt2prometheus capture [-for DURATION] [-count N] FILTER
   mqtt2prometheus verify
   mqtt2prometheus healthcheck
   mqtt2prometheus version
@@ -137,11 +134,11 @@ func (c Command) discover(ctx context.Context, args []string) error {
 	}
 
 	if *depth < 1 {
-		return &UsageError{Message: "discover: --depth must be at least 1"}
+		return &UsageError{Message: "discover: -depth must be at least 1"}
 	}
 
 	if *count < 0 {
-		return &UsageError{Message: "discover: --count cannot be negative"}
+		return &UsageError{Message: "discover: -count cannot be negative"}
 	}
 
 	cfg, err := c.configuration()
@@ -168,7 +165,7 @@ func (c Command) capture(ctx context.Context, args []string) error {
 	}
 
 	if *count < 0 {
-		return &UsageError{Message: "capture: --count cannot be negative"}
+		return &UsageError{Message: "capture: -count cannot be negative"}
 	}
 
 	cfg, err := c.configuration()
@@ -261,7 +258,11 @@ func (c Command) parse(flags *flag.FlagSet, args []string, maxArgs int) error {
 			return usageErr
 		}
 
-		return doubleDashed(err)
+		if errors.Is(err, flag.ErrHelp) {
+			return err
+		}
+
+		return &UsageError{Message: err.Error()}
 	}
 
 	if flags.NArg() > maxArgs {
@@ -279,20 +280,12 @@ func (c Command) writeFlagUsage(flags *flag.FlagSet) error {
 	return nil
 }
 
-func doubleDashed(err error) error {
-	if errors.Is(err, flag.ErrHelp) {
-		return err
-	}
-
-	return &UsageError{Message: shortFlagName.ReplaceAllString(err.Error(), "$1--$2")}
-}
-
 func flagUsage(flags *flag.FlagSet) string {
 	lines := []string{fmt.Sprintf("Usage of %s:", flags.Name())}
 
 	flags.VisitAll(func(f *flag.Flag) {
 		kind, usage := flag.UnquoteUsage(f)
-		lines = append(lines, fmt.Sprintf("  --%s %s", f.Name, kind), "    \t"+usage+shownDefault(f))
+		lines = append(lines, fmt.Sprintf("  -%s %s", f.Name, kind), "    \t"+usage+shownDefault(f))
 	})
 
 	return strings.Join(lines, "\n") + "\n"

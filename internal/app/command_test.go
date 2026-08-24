@@ -62,7 +62,7 @@ func TestExecute_ReportsAFailedVersionWrite(t *testing.T) {
 func TestExecute_TreatsHelpAsSuccess(t *testing.T) {
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"verify", "--help"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"verify", "-help"})
 
 	require.NoError(t, err)
 	require.Contains(t, errOut.String(), "Usage of verify")
@@ -73,36 +73,36 @@ func TestExecute_RejectsAnUnknownFlag(t *testing.T) {
 
 	usage := &UsageError{}
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"verify", "--nope"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"verify", "-nope"})
 	require.ErrorAs(t, err, &usage)
-	require.ErrorContains(t, err, "not defined: --nope")
+	require.ErrorContains(t, err, "not defined: -nope")
 
-	err = testCommand(&out, &errOut).Execute(t.Context(), []string{"version", "--nope"})
-	require.ErrorContains(t, err, "not defined: --nope")
+	err = testCommand(&out, &errOut).Execute(t.Context(), []string{"version", "-nope"})
+	require.ErrorContains(t, err, "not defined: -nope")
 }
 
-func TestExecute_NamesFlagsWithTwoDashes(t *testing.T) {
+func TestExecute_NamesFlagsWithASingleDash(t *testing.T) {
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"discover", "--help"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"discover", "-help"})
 	require.NoError(t, err)
 
 	printed := errOut.String()
 	require.Equal(t, `Usage of discover:
-  --count int
+  -count int
     	stop after this many prefixes; 0 keeps listening
-  --depth int
+  -depth int
     	how many topic segments make a prefix (default 1)
-  --for duration
+  -for duration
     	how long to listen; 0 listens until interrupted (default 30s)
 `, printed)
-	require.NotContains(t, printed, " -count")
+	require.NotContains(t, printed, "--count")
 }
 
 func TestExecute_ReportsAUsageItCannotPrint(t *testing.T) {
 	var out bytes.Buffer
 
-	err := Command{Out: &out, ErrOut: failingWriterOnly{}}.Execute(t.Context(), []string{"verify", "--nope"})
+	err := Command{Out: &out, ErrOut: failingWriterOnly{}}.Execute(t.Context(), []string{"verify", "-nope"})
 
 	require.ErrorContains(t, err, "disk full")
 }

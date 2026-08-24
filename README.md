@@ -194,9 +194,9 @@ Only prefixes go to stdout, so `discover > topics.txt` gives you a clean list. P
 stderr: `waiting for messages` when it starts, `closing` when it stops, and nothing in between
 unless the broker misbehaves.
 
-Pass a prefix to narrow it — `discover dsmr` subscribes to `dsmr/#` — and `--depth` to change how
-many segments make a prefix; one by default, so `--depth 2` turns `dsmr` into `dsmr/reading`. `--for`
-takes a duration (`--for 5m`) and `--count` stops after that many prefixes; `--for 0` and `--count 0`
+Pass a prefix to narrow it — `discover dsmr` subscribes to `dsmr/#` — and `-depth` to change how
+many segments make a prefix; one by default, so `-depth 2` turns `dsmr` into `dsmr/reading`. `-for`
+takes a duration (`-for 5m`) and `-count` stops after that many prefixes; `-for 0` and `-count 0`
 mean no limit. Ctrl-C always stops cleanly.
 
 Retained messages arrive the moment it subscribes, so a device that only publishes hourly still
@@ -217,7 +217,7 @@ dsmr/consumption	{"power":413,"tariff":"0002","timestamp":"250824120000W"}
 
 **Everything it prints was published while you were watching.** It asks the broker to withhold
 retained messages, so the output is live traffic rather than a snapshot of values that may be
-hours old — which also means `--count 5` is five real messages. The trade is that a device which
+hours old — which also means `-count 5` is five real messages. The trade is that a device which
 only publishes on change may say nothing for a long time; `discover` still lists it, because
 `discover` deliberately keeps retained messages in order to map the tree.
 
@@ -230,7 +230,7 @@ mqtt2prometheus capture 'dsmr/#' | cut -f1 | sort -u      # just the topics
 mqtt2prometheus capture 'dsmr/#' | cut -f2                # just the payloads
 ```
 
-`--for` and `--count` bound the run exactly as they do for `discover`, counting messages rather
+`-for` and `-count` bound the run exactly as they do for `discover`, counting messages rather
 than prefixes.
 
 ## Configuration

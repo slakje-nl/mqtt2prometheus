@@ -77,22 +77,22 @@ func TestExecute_DiscoverPrintsEachPrefixOnceAsItAppears(t *testing.T) {
 
 	t.Setenv(ConfigDirEnv, writeConfigDir(t, brokerURL, ":0", map[string]string{"zwave.yaml": zwaveSource}))
 
-	out, errOut := followUntil(t, []string{"discover", "--for", "0"}, "dsmr\n", "zigbee2mqtt\n")
+	out, errOut := followUntil(t, []string{"discover", "-for", "0"}, "dsmr\n", "zigbee2mqtt\n")
 
 	require.Equal(t, 1, strings.Count(out, "dsmr\n"))
 	require.Equal(t, "waiting for messages\nclosing\n", errOut)
 
-	deeper, _ := followUntil(t, []string{"discover", "--for", "0", "--depth", "2"},
+	deeper, _ := followUntil(t, []string{"discover", "-for", "0", "-depth", "2"},
 		"dsmr/reading", "zigbee2mqtt/example device")
 	require.Equal(t, 1, strings.Count(deeper, "dsmr/reading\n"))
 
-	narrowed, _ := followUntil(t, []string{"discover", "--for", "0", "dsmr"}, "dsmr\n")
+	narrowed, _ := followUntil(t, []string{"discover", "-for", "0", "dsmr"}, "dsmr\n")
 	require.NotContains(t, narrowed, "zigbee2mqtt")
 
 	var single, singleErr bytes.Buffer
 
 	err := testCommand(&single, &singleErr).Execute(t.Context(),
-		[]string{"discover", "--for", "0", "--count", "1"})
+		[]string{"discover", "-for", "0", "-count", "1"})
 
 	require.NoError(t, err)
 	require.Equal(t, 1, strings.Count(single.String(), "\n"))
@@ -104,7 +104,7 @@ func TestExecute_DiscoverWritesNothingWhenNobodyPublishes(t *testing.T) {
 
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"discover", "--for", "500ms"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"discover", "-for", "500ms"})
 
 	require.NoError(t, err)
 	require.Empty(t, out.String())
@@ -117,15 +117,15 @@ func TestExecute_DiscoverRejectsBadArguments(t *testing.T) {
 	command := testCommand(&out, &errOut)
 	usage := &UsageError{}
 
-	err := command.Execute(t.Context(), []string{"discover", "--depth", "0"})
+	err := command.Execute(t.Context(), []string{"discover", "-depth", "0"})
 	require.ErrorAs(t, err, &usage)
-	require.ErrorContains(t, err, "--depth must be at least 1")
+	require.ErrorContains(t, err, "-depth must be at least 1")
 
-	err = command.Execute(t.Context(), []string{"discover", "--count", "-1"})
+	err = command.Execute(t.Context(), []string{"discover", "-count", "-1"})
 	require.ErrorAs(t, err, &usage)
-	require.ErrorContains(t, err, "--count cannot be negative")
+	require.ErrorContains(t, err, "-count cannot be negative")
 
-	err = command.Execute(t.Context(), []string{"discover", "--nope"})
+	err = command.Execute(t.Context(), []string{"discover", "-nope"})
 	require.ErrorContains(t, err, "not defined")
 
 	t.Setenv(ConfigDirEnv, "")
@@ -138,7 +138,7 @@ func TestExecute_DiscoverReportsAnUnusableBrokerURL(t *testing.T) {
 
 	var out, errOut bytes.Buffer
 
-	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"discover", "--for", "1s"})
+	err := testCommand(&out, &errOut).Execute(t.Context(), []string{"discover", "-for", "1s"})
 
 	require.ErrorContains(t, err, "broker url")
 }
