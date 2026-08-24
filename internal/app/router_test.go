@@ -1,7 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,12 +20,63 @@ import (
 func newTestRouter(t *testing.T) (*Router, *store.Store, *exporter.Self) {
 	t.Helper()
 
-	samples := store.New()
-	self := exporter.NewSelf(func() float64 { return float64(samples.Len()) })
-	router := NewRouter(samples, self, quietLogger())
-	router.now = func() time.Time { return fixedTime }
+	router, samples, self, _ := newLoggingRouter(t, "error")
 
 	return router, samples, self
+}
+
+func newLoggingRouter(t *testing.T, level string) (*Router, *store.Store, *exporter.Self, *syncBuffer) {
+	t.Helper()
+
+	samples := store.New()
+	self := exporter.NewSelf(func() float64 { return float64(samples.Len()) })
+	logs := &syncBuffer{}
+	router := NewRouter(samples, self, newLogger(logs, level))
+	router.now = func() time.Time { return fixedTime }
+
+	return router, samples, self, logs
+}
+
+func TestRouter_LogsEachMessageAndItsOutcomeAtInfo(t *testing.T) {
+	router, _, _, logs := newLoggingRouter(t, "info")
+	router.Start(t.Context(), compiled(t, zwaveConfig()))
+
+	defer router.Stop()
+
+	router.Dispatch(broker.Message{
+		Topic:   "zwave/example_sensor/lastActive",
+		Payload: []byte(`{"value":1711922310552}`),
+	})
+	router.Dispatch(broker.Message{Topic: "zwave/example_sensor/unknown", Payload: []byte("13")})
+
+	require.Eventually(t, func() bool {
+		return strings.Count(logs.String(), `"msg":"message"`) == 2
+	}, 2*time.Second, 5*time.Millisecond)
+
+	written := logs.String()
+
+	require.Contains(t, written, `"topic":"zwave/example_sensor/lastActive"`)
+	require.Contains(t, written, `"payload":"{\"value\":1711922310552}"`)
+	require.Contains(t, written, `"processed":true`)
+	require.Contains(t, written, `"topic":"zwave/example_sensor/unknown"`)
+	require.Contains(t, written, `"payload":"13"`)
+	require.Contains(t, written, `"processed":false`)
+	require.Contains(t, written, `"source":"zwave"`)
+}
+
+func TestRouter_LogsNothingAtWarnForANormalMessage(t *testing.T) {
+	router, samples, _, logs := newLoggingRouter(t, "warn")
+	router.Start(t.Context(), compiled(t, zwaveConfig()))
+
+	defer router.Stop()
+
+	router.Dispatch(broker.Message{
+		Topic:   "zwave/example_sensor/lastActive",
+		Payload: []byte(`{"value":1711922310552}`),
+	})
+
+	require.Eventually(t, func() bool { return samples.Len() == 2 }, 2*time.Second, 5*time.Millisecond)
+	require.Empty(t, logs.String())
 }
 
 func compiled(t *testing.T, cfg *config.Config) []*source {
@@ -75,7 +129,7 @@ func TestRouter_CountsAnErrorByReason(t *testing.T) {
 }
 
 func TestRouter_DropsWhenTheBufferIsFull(t *testing.T) {
-	router, _, self := newTestRouter(t)
+	router, _, self, logs := newLoggingRouter(t, "warn")
 
 	sources := compiled(t, zwaveConfig())
 	router.mu.Lock()
@@ -86,6 +140,8 @@ func TestRouter_DropsWhenTheBufferIsFull(t *testing.T) {
 
 	require.InDelta(t, 1.0, testutil.ToFloat64(self.Dropped), 1e-9)
 	require.InDelta(t, 0.0, testutil.ToFloat64(self.Received.WithLabelValues("zwave")), 1e-9)
+	require.Contains(t, logs.String(), "message dropped, source buffer full")
+	require.Contains(t, logs.String(), `"topic":"zwave/a/lastActive"`)
 }
 
 func TestRouter_Subscriptions(t *testing.T) {
@@ -113,4 +169,23 @@ func TestRouter_ConsumeExitsWhenTheContextIsDone(t *testing.T) {
 	cancel()
 
 	router.Stop()
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
 }

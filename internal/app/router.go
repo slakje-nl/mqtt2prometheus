@@ -50,6 +50,8 @@ func (r *Router) Dispatch(msg broker.Message) {
 			r.self.Received.WithLabelValues(f.source.name).Inc()
 		default:
 			r.self.Dropped.Inc()
+			r.log.Warn("message dropped, source buffer full",
+				"source", f.source.name, "topic", msg.Topic)
 		}
 	}
 }
@@ -108,7 +110,11 @@ func (r *Router) consume(ctx context.Context, f *feed) {
 }
 
 func (r *Router) handle(f *feed, msg broker.Message) {
-	problems := f.source.apply(r.samples, r.now(), msg)
+	problems, matched := f.source.apply(r.samples, r.now(), msg)
+
+	r.log.Info("message", "source", f.source.name, "topic", msg.Topic,
+		"payload", string(msg.Payload), "processed", matched)
+
 	logProblems(r.log, f.source.name, msg, problems)
 
 	for _, problem := range problems {
