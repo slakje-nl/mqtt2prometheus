@@ -5,16 +5,9 @@ topic to metric lives entirely in config, so adding a sensor is a config edit an
 than a code change and a rebuild.
 
 > [!WARNING]
-> **This is a test project.** It was built to demonstrate how to work with Claude Code on a real,
-> small piece of home infrastructure in a way that stays safe and reviewable.
->
-> **Code you did not write, from a software engineer you do not know, should always be verified
-> before you run it in your own infrastructure.** That applies to this repository as much as any
-> other. Read the source, read the [`Dockerfile`](Dockerfile), check what the container is allowed
-> to reach, and decide for yourself.
->
-> It runs and it is tested, but it has not lived in production long enough to have earned anyone's
-> trust with their home network.
+> **Always verify code you use from the internet.** That applies to this repository as much as
+> any other. Read the source, understand what it can reach, and decide for yourself before you
+> run it on infrastructure you care about.
 
 ## What it does
 
@@ -353,3 +346,8 @@ The feature tests start a real Mosquitto in a container, so they need Docker.
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+## AI
+
+Claude was used responsibly in the development of this repository. It was not left on its own:
+it was monitored and guided by a human (who is also a software engineer!).
