@@ -33,8 +33,10 @@ own `$SYS` telemetry: 28 rules producing 32 metric families.
 
 ## Setting it up on unraid
 
-You need the **Docker Compose Manager** plugin from Community Applications, a reachable MQTT
-broker, and somewhere to scrape from. The client speaks MQTT 5, so Mosquitto 1.6 or newer.
+You need a way to run a compose stack on the box —
+[compose2unraid](https://github.com/slakje-nl/compose2unraid) or the **Docker Compose Manager**
+plugin from Community Applications both work — a reachable MQTT broker, and somewhere to scrape
+from. The client speaks MQTT 5, so Mosquitto 1.6 or newer.
 
 ### 1. Put the config on your array
 
@@ -51,9 +53,9 @@ Copy the files from [`config/`](config) as a starting point. Delete the sources 
 
 ### 2. Add the stack
 
-Copy [`compose.yaml`](compose.yaml) and [`.env.example`](.env.example) from this repository. In the
-Docker Compose Manager plugin, paste `compose.yaml` as the stack and rename `.env.example` to
-`.env` next to it:
+Copy [`compose.yaml`](compose.yaml) and [`.env.example`](.env.example) from this repository into a
+stack — a directory under compose2unraid's `stacks/`, or a new stack in Docker Compose Manager —
+and rename `.env.example` to `.env` next to it:
 
 ```
 MQTT_BROKER=tcp://192.0.2.10:1883
@@ -72,40 +74,15 @@ on.
 If your appdata lives somewhere other than `/mnt/user/appdata/mqtt2prometheus`, change the bind
 mount in `compose.yaml`; the `/config` side of it is what the image expects and should stay.
 
-### 3. Check what it is allowed to reach
-
-Worth doing for any container you did not build yourself. This one asks for:
-
-- **No host networking**, no `network_mode: host`.
-- **No privileged mode**, no added capabilities.
-- **No Docker socket.** It never talks to Docker.
-- **One bind mount, read only**: your config directory at `/config`.
-- **One published port**: 9000, for Prometheus to scrape.
-- It runs as **nonroot** on a distroless base, about 13 MB, with no shell in the image.
-
-If `compose.yaml` ever asks for more than that, something is wrong.
-
-### 4. Confirm it works
+### 3. Confirm it works
 
 ```
 curl http://<unraid-ip>:9000/metrics
 ```
 
-You should see your devices within a scrape or two. There is also `/healthz` (the process is up)
-and `/readyz` (connected to the broker and at least one message seen).
+You should see your devices within a scrape or two.
 
-To check a config change before restarting anything:
-
-```
-docker exec mqtt2prometheus mqtt2prometheus verify
-```
-
-It prints what every source resolved to and exits non-zero on any problem. Credentials are
-redacted in the output.
-
-There is no reload signal: once `verify` is happy, restart the container to pick the change up.
-
-### 5. Point Prometheus at it
+### 4. Point Prometheus at it
 
 ```yaml
 scrape_configs:
@@ -114,7 +91,7 @@ scrape_configs:
       - targets: ['<unraid-ip>:9000']
 ```
 
-### 6. Add a metric
+### 5. Add a metric
 
 Say a new plug shows up publishing `zigbee2mqtt/desk lamp` with `{"power":8.2,"battery":97}`.
 `battery` is not in the example config, so add one rule to `sources/zigbee2mqtt.yaml`:
@@ -139,24 +116,7 @@ to roll back to.
 ## Commands
 
 The image runs `run` by default. Every other subcommand is there to be reached with `docker exec`,
-and none of them take a config path — the configuration directory comes from the
-`MQTT2PROMETHEUS_CONFIG_DIR` environment variable, which the image already sets to `/config`.
-
-There is no `--log-level` flag either. The log level is `log.level` in the config, and the example
-config reads it from `MQTT2PROMETHEUS_LOG_LEVEL`, so one variable sets it for every subcommand.
-Logs are JSON on stderr. `compose.yaml` defaults the variable to `warn`; running the binary outside
-compose with it unset stops the process naming it, the same way an unset `MQTT_BROKER` does.
-
-| level | what you get |
-|---|---|
-| `error` | the broker refused a subscription, or the subscribe call failed |
-| `warn` | anything not working while it keeps going: connection attempts failing, a message dropped because a source fell behind |
-| `info` | one line per message — topic, source, payload, and whether a rule matched |
-| `debug` | why a rule that matched produced no value |
-
-`warn` is the setting to run with. **`info` logs every payload**, which is how you find out why a
-rule is not firing — and also means your device readings sit in `docker logs` until the container
-is replaced. Turn it on to debug, turn it back off.
+for example `docker exec mqtt2prometheus mqtt2prometheus verify`:
 
 ```
 mqtt2prometheus run                       subscribe and serve /metrics
@@ -167,167 +127,10 @@ mqtt2prometheus healthcheck               probe the local health endpoint and ex
 mqtt2prometheus version                   print the version and exit
 ```
 
-```
-docker exec mqtt2prometheus mqtt2prometheus verify
-```
+## Documentation
 
-### Finding out what is publishing
-
-Before you can write a rule you need to know the topic. `discover` prints each prefix once, the
-moment it first appears, and nothing else:
-
-```
-$ docker exec mqtt2prometheus mqtt2prometheus discover
-dsmr
-zigbee2mqtt
-$SYS
-```
-
-Only prefixes go to stdout, so `discover > topics.txt` gives you a clean list. Progress goes to
-stderr: `waiting for messages` when it starts, `closing` when it stops, and nothing in between
-unless the broker misbehaves.
-
-Pass a prefix to narrow it — `discover dsmr` subscribes to `dsmr/#` — and `-depth` to change how
-many segments make a prefix; one by default, so `-depth 2` turns `dsmr` into `dsmr/reading`. `-for`
-takes a duration (`-for 5m`) and `-count` stops after that many prefixes; `-for 0` and `-count 0`
-mean no limit. Ctrl-C always stops cleanly.
-
-Retained messages arrive the moment it subscribes, so a device that only publishes hourly still
-shows up in the first few seconds. It connects with its own client id, so running it never
-disturbs the exporter already connected to the same broker.
-
-### Seeing what a topic actually sends
-
-Once `discover` has told you the prefix, `capture` prints the messages themselves — one line per
-message, topic and payload separated by a tab:
-
-```
-$ docker exec mqtt2prometheus mqtt2prometheus capture 'dsmr/#'
-dsmr/reading/electricity_currently_delivered	0.412
-dsmr/reading/gas_meter_reading	1234.567
-dsmr/consumption	{"power":413,"tariff":"0002","timestamp":"250824120000W"}
-```
-
-**Everything it prints was published while you were watching.** It asks the broker to withhold
-retained messages, so the output is live traffic rather than a snapshot of values that may be
-hours old — which also means `-count 5` is five real messages. The trade is that a device which
-only publishes on change may say nothing for a long time; `discover` still lists it, because
-`discover` deliberately keeps retained messages in order to map the tree.
-
-One line is always one message: a newline, carriage return or tab inside a payload is written as
-`\n`, `\r` or `\t`. Backslashes are left alone so JSON stays readable. That makes the output
-easy to slice:
-
-```
-mqtt2prometheus capture 'dsmr/#' | cut -f1 | sort -u      # just the topics
-mqtt2prometheus capture 'dsmr/#' | cut -f2                # just the payloads
-```
-
-`-for` and `-count` bound the run exactly as they do for `discover`, counting messages rather
-than prefixes.
-
-## Configuration
-
-### Process
-
-`config/mqtt2prometheus.yaml`. Every field is required; there are no defaults, so a value you
-forgot fails loudly at startup instead of silently becoming something the file does not document.
-
-| Field | Meaning |
-|---|---|
-| `mqtt.broker` | Broker URL, for example `tcp://192.0.2.10:1883` |
-| `mqtt.client_id` | Client id to connect with |
-| `mqtt.username`, `mqtt.password` | Credentials |
-| `mqtt.qos` | Default subscription QoS, 0, 1 or 2 |
-| `mqtt.clean_session` | Whether to start a fresh session |
-| `server.listen` | Address to serve `/metrics` on |
-| `log.level` | `debug`, `info`, `warn` or `error` |
-| `sources` | Glob for the source files, relative to the config directory |
-
-`${ENV_VAR}` is expanded anywhere in any config file.
-
-### Sources
-
-One file per source, in `sources/`. Sources pointing at the same broker share one connection.
-
-| Field | Required | Meaning |
-|---|---|---|
-| `name` | yes | Identifies the source in logs and self-metrics |
-| `subscribe` | yes | MQTT topic filter to subscribe to |
-| `qos` | no | Overrides `mqtt.qos` for this source |
-| `broker` | no | Connect to a different broker |
-| `last_updated_metric` | no | Gauge set to the current time whenever any rule here matches |
-| `labels` | no | Labels added to every metric from this source, and to `last_updated_metric` |
-| `rules` | yes | At least one |
-
-### Rules
-
-| Field | Required | Meaning |
-|---|---|---|
-| `match` | yes | Go regular expression; named groups become labels |
-| `metric_name` | yes | The Prometheus metric name |
-| `type` | yes | `gauge` or `counter` |
-| `help` | no | The `# HELP` text |
-| `value` | yes | Where the number comes from |
-| `last_updated_metric` | no | Gauge set to the current time, carrying this rule's labels |
-| `labels` | no | Extra labels, static or taken from the payload |
-
-Every rule that matches a topic runs, so one message can produce several metrics. Several rules may
-share a `metric_name` — that is how `phase` or `tariff` becomes a label — as long as they agree on
-label names, `help` and `type`. `verify` refuses anything else, including a `last_updated_metric`
-that collides with a metric, because Prometheus rejects a scrape whose metric family disagrees with
-itself.
-
-### Labels
-
-Every label is a mapping saying where its value comes from. A source's labels land on all of its
-rules and on its `last_updated_metric`; a rule's labels are its own, and win on a name clash.
-
-```yaml
-labels:
-  phase: {from: static, value: l1}
-  endpoint: {from: static, value: 'endpoint_{ep}'}   # {ep} is a capture group of match
-  mac_address: {from: json, path: mac_address}       # dotted path into the payload
-  tariff: {from: json, path: ElectricityTariff, map: {'0001': low, '0002': normal}}
-```
-
-`from: json` is how an identifier the device publishes — a gateway's mac address, a meter id —
-becomes a label without being written into a config file. A capture group used inside a
-`{capture}` template stops emitting a label of its own.
-
-A path that is not present in the payload, and a value outside `map`, skip the whole sample: an
-absent label would silently change which series the reading belongs to. A payload that is not JSON,
-and a value that is an object or an array, are errors.
-
-### Values
-
-```yaml
-value: {from: json, path: value}                    # dotted path into the object
-value: {from: json, path: value, scale: 0.001}      # multiply after extraction
-value: {from: json, path: state, map: {ON: 1, OFF: 0}}
-value: {from: raw}                                  # the whole payload as a number
-value: {from: raw, regex: '^([0-9]+) seconds$'}     # group 1 as the number
-```
-
-A path that is not present, a null, and a string outside `map` are all skipped quietly. Malformed
-JSON, a non-numeric value and a `regex` that does not match are counted as errors.
-
-A `counter` whose value drops is treated as a source restart: an offset is carried so `rate()` and
-`increase()` stay correct.
-
-## Metrics about the exporter itself
-
-```
-mqtt2prom_build_info{version,commit,go_version}
-mqtt2prom_mqtt_connected
-mqtt2prom_mqtt_reconnects_total
-mqtt2prom_messages_received_total{source}
-mqtt2prom_messages_dropped_total
-mqtt2prom_message_errors_total{source,reason}
-mqtt2prom_series
-```
-
-Every label here is bounded by your config, so none of them can grow without limit.
+- [Configuration](docs/configuration.md) — the process config, sources, rules, labels, values,
+  and the exporter's own metrics.
 
 ## Working on it
 
